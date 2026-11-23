@@ -7,7 +7,9 @@ Se ubica cada cámara, se orienta y se ve qué área cubre (los muros cortan la 
 
 ## Funciones
 - **Planos**: se suben como imagen (JPG/PNG) o PDF (eliges qué páginas importar). La escala se calibra marcando una medida conocida.
-- **Muros**: detección automática desde el plano o dibujo manual. La cobertura se calcula con trazado de rayos y se corta en los muros.
+- **Muros leídos del PDF**: si el plano es un PDF vectorial (AutoCAD, Revit, etc.), la app recorre las líneas reales del dibujo, las agrupa por estilo (color y grosor) y propone cuáles son muros. Un estilo se considera muro si sus trazos son rectos y de color neutro, si coinciden con los muros gruesos que se ven en la imagen y si no está formado sólo por líneas muy largas, como el marco o los deslindes. Antes de aplicar se ve una vista previa y se puede ajustar.
+- **Muros desde imagen**: para planos escaneados o en JPG/PNG, detección por análisis de la imagen. También se pueden dibujar a mano.
+- **Cobertura**: se calcula con trazado de rayos y se corta en los muros.
 - **Cámaras**: tipos configurables (bullet, domo, turret, PTZ, 360°). Cada una tiene dirección, ángulo de visión, alcance, distancia de identificación, fase, altura y notas.
 - **Resumen**: cuenta las cámaras por tipo, fase y plano, y estima los canales del NVR, los TB de disco según los días de grabación, el consumo PoE y el costo.
 - **Exportar**: plano marcado en PNG, listado en CSV (abre en Excel) y proyecto en JSON, con o sin las imágenes de los planos.

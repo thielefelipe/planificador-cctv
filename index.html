@@ -315,7 +315,8 @@ function coverage(c,f){
   const ppm=f.pxPerM||40,R=Math.max(.1,+c.range||1)*ppm,I=Math.max(0,Math.min(+c.ident||0,+c.range||0))*ppm;
   const fov=clamp(+c.fov||60,1,360),full=fov>=360;
   const n=clamp(Math.round(fov/1),16,360);
-  const a0=(c.dir-fov/2)*Math.PI/180,da=fov*Math.PI/180/n,eps=.3*ppm,walls=f.walls||[];
+  const a0=(c.dir-fov/2)*Math.PI/180,da=fov*Math.PI/180/n,eps=.3*ppm;
+  const walls=(f.walls||[]).filter(w=>!(Math.max(w[0],w[2])<c.x-R||Math.min(w[0],w[2])>c.x+R||Math.max(w[1],w[3])<c.y-R||Math.min(w[1],w[3])>c.y+R));
   const outer=full?[]:[[c.x,c.y]],inner=full?[]:[[c.x,c.y]];
   let area=0;
   for(let i=0;i<=n;i++){
@@ -517,11 +518,12 @@ function renderFloors(){
    <div class="small">Escala: ${f.pxPerM?`1 m = ${fmt(f.pxPerM,1)} px`:'<b style="color:var(--red)">sin calibrar</b>'}</div>
    <div class="btns"><button id="fCal">Calibrar escala</button></div>
    <div class="small" style="margin-top:8px">Muros: ${f.walls.length}</div>
-   <div class="btns"><button id="fDetect">Detectar muros (auto)</button><button id="fClear" class="danger">Borrar muros</button></div>
+   <div class="btns"><button id="fVec" title="Lee las líneas del dibujo vectorial del PDF (más preciso)">Leer muros del PDF</button><button id="fDetect" title="Analiza la imagen del plano">Detectar en imagen</button><button id="fClear" class="danger">Borrar muros</button></div>
    <div class="btns"><button id="fUp" title="Subir">↑</button><button id="fDown" title="Bajar">↓</button><button id="fDel" class="danger">Quitar plano</button></div>`;
   $('#fName').onchange=e=>{f.name=e.target.value||'Plano';commit();renderFloors();};
   $('#fCal').onclick=()=>{setTool('calib');st.two=null;draw();};
   $('#fDetect').onclick=()=>detectWallsUI(f);
+  $('#fVec').onclick=()=>vectorWallsUI(f);
   $('#fClear').onclick=()=>confirmBox('¿Borrar todos los muros de este plano?','Borrar',()=>{f.walls=[];wallsVer++;commit();renderAll();});
   $('#fUp').onclick=()=>moveFloor(f,-1);$('#fDown').onclick=()=>moveFloor(f,1);
   $('#fDel').onclick=()=>confirmBox(`¿Quitar el plano "${esc(f.name)}" y sus ${floorCams(f).length} cámaras?`,'Quitar',()=>{P.cameras=P.cameras.filter(c=>c.floor!==f.id);P.floors=P.floors.filter(x=>x!==f);st.floor=P.floors[0]?.id||null;commit();renderAll();fitView();});
@@ -639,7 +641,7 @@ $('#btnHelp').onclick=()=>openModal(`<h3>Cómo usar el planificador</h3>
 <ol style="padding-left:18px;line-height:1.6">
 <li><b>Agrega un plano</b> (imagen o PDF). Si es un PDF de varias páginas, eliges cuáles importar.</li>
 <li><b>Calibra la escala</b>: marca dos puntos de una medida conocida (por ejemplo, entre ejes) y escribe los metros.</li>
-<li><b>Muros</b>: usa "Detectar muros (auto)" o dibújalos con la herramienta Muro. Así la cobertura se corta donde hay paredes.</li>
+<li><b>Muros</b>: si el plano viene de un PDF de AutoCAD, la app lee las líneas del dibujo y te propone cuáles son muros ("Leer muros del PDF"). Con imágenes usa "Detectar en imagen". También puedes dibujarlos con la herramienta Muro. La cobertura se corta donde hay paredes.</li>
 <li><b>Cámaras</b>: elige el tipo, activa la herramienta Cámara y haz clic en el plano. Arrastra el punto blanco para orientarla y ajusta el ángulo y el alcance en el panel derecho.</li>
 <li>El panel de <b>Resumen</b> calcula los canales del NVR, el disco y el PoE. Exporta el plano en PNG o el listado en CSV desde el menú Archivo.</li></ol>
 <table class="t"><tr><th>Tecla</th><th>Acción</th></tr>
@@ -763,10 +765,14 @@ async function addPdf(file){
   $('#pgNo').onclick=closeModal;
   $('#pgOk').onclick=async()=>{const sel=[...document.querySelectorAll('#pgList [data-p]')].filter(x=>x.checked).map(x=>({p:+x.dataset.p,name:document.querySelector(`#pgList [data-n="${x.dataset.p}"]`).value}));
     if(!sel.length){toast('Marca al menos una página');return;}closeModal();
+    const added=[];
     try{for(const it of sel){busy(true,`Renderizando página ${it.p}…`);const page=await doc.getPage(it.p);const v1=page.getViewport({scale:1});const sc=Math.min(5000/Math.max(v1.width,v1.height),6);const vp=page.getViewport({scale:sc});
       const c=document.createElement('canvas');c.width=Math.round(vp.width);c.height=Math.round(vp.height);const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
-      await page.render({canvasContext:g,viewport:vp}).promise;const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.86));await addImageBlob(blob,it.name,true);}
-      busy(false);}catch(err){busy(false);toast('Error al convertir el PDF: '+(err.message||err),6000);}};
+      await page.render({canvasContext:g,viewport:vp}).promise;const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.86));const nf=await addImageBlob(blob,it.name,true);pdfPages.set(nf.id,{doc,page:it.p});added.push(nf);}
+      busy(false);
+      for(const nf of added){st.floor=nf.id;renderAll();fitView();await vectorWallsUI(nf,true);}
+      setTool('calib');toast('Ahora calibra la escala: marca dos puntos de una medida conocida (por ejemplo, entre dos ejes).',7000);
+    }catch(err){busy(false);toast('Error al convertir el PDF: '+(err.message||err),6000);}};
 }
 async function addImageBlob(blob,name,quiet){
   busy(true,'Subiendo plano…');
@@ -776,12 +782,13 @@ async function addImageBlob(blob,name,quiet){
   Object.assign(f,loc);imgs.set(floorSrc(f)||url,im);
   if(loc._tmp)toast('Este plano se verá sólo en esta sesión: el navegador no permite guardar la imagen.',6000);
   P.floors.push(f);st.floor=f.id;st.sel=null;commit();renderAll();fitView();busy(false);
-  setTool('calib');toast('Plano agregado. Ahora calibra la escala: marca dos puntos de una medida conocida.',6000);
+  if(!quiet){setTool('calib');toast('Plano agregado. Ahora calibra la escala: marca dos puntos de una medida conocida.',6000);}
+  return f;
 }
 
 /* ---------------- detección automática de muros ---------------- */
 function detectWallsUI(f){
-  openModal(`<h3>Detectar muros automáticamente</h3><p>Busca líneas gruesas y oscuras en el plano (muros achurados o rellenos) y las convierte en muros que bloquean la vista.</p>
+  openModal(`<h3>Detectar muros en la imagen</h3><p>Busca líneas gruesas y oscuras en la imagen del plano (muros achurados o rellenos). Si tienes el plano en PDF de AutoCAD, usa mejor <b>Leer muros del PDF</b>: es mucho más preciso.</p>
   <div class="row"><label>Grosor mínimo</label><select id="dK"><option value="0.12">Fino (tabiques delgados)</option><option value="0.22" selected>Normal</option><option value="0.32">Grueso (sólo muros principales)</option></select></div>
   <div class="row"><label>Muros actuales</label><select id="dMode"><option value="replace">Reemplazar</option><option value="add">Agregar a los existentes</option></select></div>
   <p class="small">${f.pxPerM?'':'<b>Calibra la escala antes</b> para que la detección sea más precisa. '}Revisa el resultado con "Mostrar muros". Puedes borrar los muros que sobren (selecciónalos y presiona Supr) y dibujar los que falten.</p>
@@ -791,22 +798,195 @@ function detectWallsUI(f){
     try{const segs=await detectWalls(f,k);f.walls=mode==='add'?f.walls.concat(segs):segs;wallsVer++;st.show.walls=true;$('#vWalls').checked=true;commit();renderAll();toast(`${segs.length} muros detectados`);}
     catch(e){toast('No se pudo detectar: '+e.message);}busy(false);};
 }
-async function detectWalls(f,thickM){
+// máscara de trazos gruesos y oscuros (muros achurados o rellenos) a partir de la imagen
+async function rasterWallMask(f,thickM){
   const im=await loadImg(f);const sc=Math.min(1,5000/Math.max(f.w,f.h));const W=Math.round(f.w*sc),H=Math.round(f.h*sc);
   const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d',{willReadFrequently:true});g.imageSmoothingEnabled=sc<1;g.drawImage(im,0,0,W,H);
   const d=g.getImageData(0,0,W,H).data;let m=new Uint8Array(W*H);
   for(let i=0,j=0;i<m.length;i++,j+=4){const r=d[j],gg=d[j+1],b=d[j+2];const gray=.299*r+.587*gg+.114*b;const sat=Math.max(r,gg,b)-Math.min(r,gg,b);m[i]=(gray<110&&sat<40)?1:0;}
   // tamaños en píxeles a partir de la escala (si no hay escala, se asume una lámina 1:100 a ~110 ppp)
   const ppm=(f.pxPerM||40.5*f.w/3898)*sc,odd=v=>Math.max(3,Math.round(v)|1);
-  const k=odd(thickM*ppm),kl=odd(.6*ppm),kc=odd(2*ppm),minA=Math.pow(.39*ppm,2),big=1.1*ppm;
+  const k=odd(thickM*ppm);
   m=filt(filt(filt(filt(m,W,H,3,'h',0),W,H,3,'v',0),W,H,3,'h',1),W,H,3,'v',1);   // cierre 3x3 (une el achurado)
   m=filt(m,W,H,k,'h',1);m=filt(m,W,H,k,'v',1);m=filt(m,W,H,k,'h',0);m=filt(m,W,H,k,'v',0); // apertura: sólo trazos gruesos
+  return{m,W,H,sc,ppm,odd};
+}
+async function detectWalls(f,thickM){
+  const {m,W,H,sc,ppm,odd}=await rasterWallMask(f,thickM);
+  const kl=odd(.6*ppm),kc=odd(2*ppm),minA=Math.pow(.39*ppm,2),big=1.1*ppm;
   let Hm=filt(filt(m,W,H,kl,'h',1),W,H,kl,'h',0);Hm=filt(filt(Hm,W,H,kc,'h',0),W,H,kc,'h',1);
   let Vm=filt(filt(m,W,H,kl,'v',1),W,H,kl,'v',0);Vm=filt(filt(Vm,W,H,kc,'v',0),W,H,kc,'v',1);
   const out=[],inv=1/sc;
   comps(Hm,W,H).forEach(([x,y,w,h,a])=>{if(a<minA)return;if(h>big)out.push(...rect(x,y,w,h));else{const cy=y+h/2;out.push([x-h/2,cy,x+w+h/2,cy]);}});
   comps(Vm,W,H).forEach(([x,y,w,h,a])=>{if(a<minA)return;if(w>big)out.push(...rect(x,y,w,h));else{const cx=x+w/2;out.push([cx,y-w/2,cx,y+h+w/2]);}});
   return out.map(s=>s.map(v=>Math.round(v*inv)));
+}
+
+/* ---------------- muros desde el dibujo vectorial del PDF ---------------- */
+const pdfPages=new Map(); // id de plano -> {doc, page} (sólo durante la sesión)
+// Recorre las operaciones de dibujo de la página y agrupa los trazos por estilo (color + grosor).
+async function pdfVectorStyles(doc,pageNum,targetW){
+  const L=await ensurePdf(),O=L.OPS,page=await doc.getPage(pageNum);
+  const v1=page.getViewport({scale:1}),ptToPx=targetW/v1.width,vp=page.getViewport({scale:ptToPx});
+  const ol=await page.getOperatorList();
+  const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];
+  const hex=a=>{if(typeof a[0]==='string')return a[0].toLowerCase();return'#'+[a[0],a[1],a[2]].map(v=>clamp(Math.round(+v||0),0,255).toString(16).padStart(2,'0')).join('');};
+  let gs={ctm:vp.transform.slice(),lw:1,sc:'#000000',fc:'#000000'};const stack=[],styles=new Map();
+  let path=[],cx=0,cy=0,sx=0,sy=0;
+  const tp=(x,y)=>{const m=gs.ctm;return[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];};
+  const emit=kind=>{
+    if(!path.length)return;
+    const det=Math.sqrt(Math.abs(gs.ctm[0]*gs.ctm[3]-gs.ctm[1]*gs.ctm[2]))/ptToPx;
+    const lw=kind==='s'?Math.round(gs.lw*det*100)/100:0,color=kind==='s'?gs.sc:gs.fc,key=kind+'|'+color+'|'+lw;
+    let o=styles.get(key);if(!o){o={key,kind,color,lw,segs:[]};styles.set(key,o);}
+    for(const q of path)if(Math.abs(q[2]-q[0])+Math.abs(q[3]-q[1])>.5)o.segs.push(q);
+    path=[];
+  };
+  const fa=ol.fnArray,aa=ol.argsArray;
+  for(let i=0;i<fa.length;i++){
+    const fn=fa[i],a=aa[i];
+    switch(fn){
+      case O.save:stack.push({...gs,ctm:gs.ctm.slice()});break;
+      case O.restore:if(stack.length)gs=stack.pop();break;
+      case O.transform:gs.ctm=mul(gs.ctm,a);break;
+      case O.paintFormXObjectBegin:stack.push({...gs,ctm:gs.ctm.slice()});if(Array.isArray(a[0])&&a[0].length===6)gs.ctm=mul(gs.ctm,a[0]);break;
+      case O.paintFormXObjectEnd:if(stack.length)gs=stack.pop();break;
+      case O.setLineWidth:gs.lw=a[0];break;
+      case O.setStrokeRGBColor:gs.sc=hex(a);break;
+      case O.setFillRGBColor:gs.fc=hex(a);break;
+      case O.setStrokeGray:{const v=Math.round(a[0]*255);gs.sc=hex([v,v,v]);break;}
+      case O.setFillGray:{const v=Math.round(a[0]*255);gs.fc=hex([v,v,v]);break;}
+      case O.constructPath:{
+        const ops=a[0],co=a[1];let k=0;
+        for(const op of ops){
+          if(op===O.moveTo){[cx,cy]=tp(co[k],co[k+1]);sx=cx;sy=cy;k+=2;}
+          else if(op===O.lineTo){const p=tp(co[k],co[k+1]);k+=2;path.push([cx,cy,p[0],p[1]]);[cx,cy]=p;}
+          else if(op===O.curveTo){const p=tp(co[k+4],co[k+5]);k+=6;path.push([cx,cy,p[0],p[1]]);[cx,cy]=p;}
+          else if(op===O.curveTo2||op===O.curveTo3){const p=tp(co[k+2],co[k+3]);k+=4;path.push([cx,cy,p[0],p[1]]);[cx,cy]=p;}
+          else if(op===O.closePath){path.push([cx,cy,sx,sy]);cx=sx;cy=sy;}
+          else if(op===O.rectangle){const x=co[k],y=co[k+1],w=co[k+2],h=co[k+3];k+=4;const p=[tp(x,y),tp(x+w,y),tp(x+w,y+h),tp(x,y+h)];for(let j=0;j<4;j++){const A=p[j],B=p[(j+1)%4];path.push([A[0],A[1],B[0],B[1]]);}[cx,cy]=p[0];sx=cx;sy=cy;}
+        }
+        break;}
+      case O.stroke:emit('s');break;
+      case O.closeStroke:if(path.length)path.push([cx,cy,sx,sy]);emit('s');break;
+      case O.fillStroke:case O.eoFillStroke:case O.closeFillStroke:case O.closeEOFillStroke:emit('s');break;
+      case O.fill:case O.eoFill:emit('f');break;
+      case O.endPath:path=[];break;
+    }
+  }
+  return{styles:[...styles.values()].filter(o=>o.segs.length),w:vp.width,h:vp.height};
+}
+// Qué tanto parece "muro" cada estilo: rectitud (horizontal/vertical), color neutro y oscuro,
+// y cuánto coincide con los muros gruesos que se ven en la imagen.
+function scoreStyles(styles,mask,pw){
+  const longT=.0157*pw;
+  for(const o of styles){
+    let L=0,orth=0,inside=0,tot=0,lng=0;
+    for(const [x1,y1,x2,y2] of o.segs){
+      const l=Math.hypot(x2-x1,y2-y1);L+=l;if(l>longT)lng+=l;if(Math.abs(y2-y1)<=l*.035||Math.abs(x2-x1)<=l*.035)orth+=l;
+      if(mask){const n=clamp(Math.round(l*mask.sc/4),1,40);for(let i=0;i<n;i++){const t=(i+.5)/n,x=Math.round((x1+(x2-x1)*t)*mask.sc),y=Math.round((y1+(y2-y1)*t)*mask.sc);tot++;if(x>=0&&y>=0&&x<mask.W&&y<mask.H&&mask.m[y*mask.W+x])inside++;}}
+    }
+    const [r,g,b]=[1,3,5].map(i=>parseInt(o.color.slice(i,i+2),16)||0);
+    o.L=L;o.orth=L?orth/L:0;o.longFrac=L?lng/L:0;o.ov=tot?inside/tot:0;o.sat=(Math.max(r,g,b)-Math.min(r,g,b))/255;o.lum=(r+g+b)/765;
+    o.score=o.ov*o.orth*Math.sqrt(L)*(o.sat<.3?1:.2)*(o.lum<.65?1:.2);
+    o.auto=o.segs.length>=15&&o.orth>=.7&&o.sat<.3&&o.lum<.65&&o.ov>=.22&&o.longFrac<.85; // sólo líneas muy largas = marco, cajetín o deslindes
+  }
+  styles.sort((a,b)=>(b.auto-a.auto)||(b.score-a.score));
+  if(!styles.some(o=>o.auto)){const best=styles.find(o=>o.sat<.3&&o.lum<.65&&o.orth>=.6);if(best)best.auto=true;}
+  return styles;
+}
+// Une trazos alineados (cara de muro cortada en tramos), cierra huecos menores a gapM y descarta trocitos.
+function simplifySegs(segs,ppm,gapM,minM){
+  const gap=gapM*ppm,mn=minM*ppm,snap=Math.max(1.5,.06*ppm),H=new Map(),V=new Map(),D=[];
+  for(const [x1,y1,x2,y2] of segs){
+    if(Math.abs(y2-y1)<=1){const k=Math.round((y1+y2)/2/snap);if(!H.has(k))H.set(k,[]);H.get(k).push([Math.min(x1,x2),Math.max(x1,x2),(y1+y2)/2]);}
+    else if(Math.abs(x2-x1)<=1){const k=Math.round((x1+x2)/2/snap);if(!V.has(k))V.set(k,[]);V.get(k).push([Math.min(y1,y2),Math.max(y1,y2),(x1+x2)/2]);}
+    else if(Math.hypot(x2-x1,y2-y1)>=mn*2)D.push([x1,y1,x2,y2]);
+  }
+  const out=[];
+  for(const [G,hor] of [[H,true],[V,false]]){
+    for(const iv of G.values()){
+      iv.sort((a,b)=>a[0]-b[0]);let cur=iv[0].slice();
+      const push=c=>{if(c[1]-c[0]>=mn)out.push(hor?[c[0],c[2],c[1],c[2]]:[c[2],c[0],c[2],c[1]]);};
+      for(let i=1;i<iv.length;i++){const [a,b,c]=iv[i];if(a<=cur[1]+gap)cur[1]=Math.max(cur[1],b);else{push(cur);cur=[a,b,c];}}
+      push(cur);
+    }
+  }
+  return out.concat(D).map(s=>s.map(v=>Math.round(v)));
+}
+function pickPdfPage(f){
+  return new Promise(resolve=>{
+    openModal(`<h3>Leer muros desde el PDF</h3><p>Elige el PDF original de este plano y la página que corresponde. La app lee las líneas del dibujo (no la imagen), así que el resultado es mucho más preciso.</p>
+    <div class="row"><label>Archivo PDF</label><input type="file" id="vpFile" accept=".pdf,application/pdf"></div>
+    <div class="row"><label>Página</label><input type="number" id="vpPage" min="1" value="1" style="max-width:90px"></div>
+    <p class="small">La página debe ser la misma que se usó para la imagen del plano (mismo encuadre), para que los muros calcen.</p>
+    <div class="btns"><button class="pri" id="vpOk">Leer</button><button id="vpNo">Cancelar</button></div>`);
+    $('#vpNo').onclick=()=>{closeModal();resolve(null);};
+    $('#vpOk').onclick=async()=>{const file=$('#vpFile').files[0],p=Math.max(1,+$('#vpPage').value||1);if(!file){toast('Elige el archivo PDF');return;}
+      closeModal();busy(true,'Abriendo PDF…');
+      try{const L=await ensurePdf();const doc=await L.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;
+        if(p>doc.numPages){busy(false);toast(`El PDF tiene sólo ${doc.numPages} página(s)`);resolve(null);return;}
+        const v=(await doc.getPage(p)).getViewport({scale:1});
+        if(Math.abs(v.width/v.height-f.w/f.h)>.02*(f.w/f.h)){busy(false);toast('Esa página no tiene la misma proporción que la imagen del plano: revisa el número de página.',7000);resolve(null);return;}
+        pdfPages.set(f.id,{doc,page:p});busy(false);resolve(pdfPages.get(f.id));}
+      catch(e){busy(false);toast('No se pudo leer el PDF: '+(e.message||e),6000);resolve(null);}};
+  });
+}
+// Ventana de revisión: muestra los estilos de línea, marca los que parecen muros y deja ver el resultado antes de aplicarlo.
+async function vectorWallsUI(f,fromImport){
+  let src=pdfPages.get(f.id);
+  if(!src){if(fromImport)return;src=await pickPdfPage(f);if(!src)return;}
+  busy(true,'Leyendo el dibujo del PDF…');await new Promise(r=>setTimeout(r,30));
+  let res,mask=null;
+  try{
+    res=await pdfVectorStyles(src.doc,src.page,f.w);
+    try{const mm=await rasterWallMask(f,.22);const k=Math.max(3,Math.round(.25*mm.ppm)|1);mask={m:filt(filt(mm.m,mm.W,mm.H,k,'h',0),mm.W,mm.H,k,'v',0),W:mm.W,H:mm.H,sc:mm.sc};}catch(e){}
+  }catch(e){busy(false);toast('No se pudo leer el dibujo del PDF: '+(e.message||e),6000);return;}
+  busy(false);
+  // fuera el marco de la lámina: trazos pegados al borde de la hoja
+  const bx=.015*res.w,by=.015*res.h,nearEdge=(x,y)=>x<bx||y<by||x>res.w-bx||y>res.h-by;
+  res.styles.forEach(o=>{o.segs=o.segs.filter(q=>!(nearEdge(q[0],q[1])&&nearEdge(q[2],q[3])));});
+  const styles=scoreStyles(res.styles.filter(o=>o.segs.length>=3),mask,res.w).slice(0,24);
+  if(!styles.length){toast('Este PDF no trae líneas vectoriales (parece una imagen escaneada). Usa "Detectar en imagen".',7000);return;}
+  const ppm=f.pxPerM||f.w/96;
+  return new Promise(resolve=>{
+    const row=(o,i)=>`<label class="vrow" data-i="${i}" style="display:flex;gap:8px;align-items:center;padding:5px 4px;border-bottom:1px solid var(--line);cursor:pointer">
+      <input type="checkbox" data-i="${i}" ${o.auto?'checked':''} style="flex:none">
+      <span style="flex:none;width:34px;height:${clamp(Math.round(o.lw*2)+1,1,6)}px;background:${o.color};border:${o.lum>.9?'1px solid #ccc':'0'}"></span>
+      <span style="flex:1;font-size:12.5px;line-height:1.3">${o.kind==='f'?'Relleno':'Línea '+fmt(o.lw,2)+' pt'} <span class="small">${o.color}</span><br><span class="small">${fmt(o.segs.length,0)} trazos · ${Math.round(o.orth*100)}% rectos${mask?' · coincide '+Math.round(o.ov*100)+'%':''}</span></span></label>`;
+    openModal(`<h3>Muros leídos del PDF${fromImport?' — '+esc(f.name):''}</h3>
+     <p class="small" style="margin-top:-4px">Encontré ${res.styles.length} estilos de línea en el dibujo. Marqué los que parecen muros: líneas rectas, de color neutro, que coinciden con los muros que se ven en el plano. Revisa la vista previa (en rojo) y ajusta si hace falta. Pasa el mouse sobre un estilo para verlo en azul.</p>
+     <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+       <div style="flex:1 1 480px;min-width:0"><canvas id="vPrev" style="width:100%;border:1px solid var(--line);border-radius:6px;background:#fff"></canvas><div class="small" id="vCount"></div></div>
+       <div style="flex:0 0 280px;max-height:58vh;overflow:auto;border:1px solid var(--line);border-radius:6px" id="vList">${styles.map(row).join('')}</div>
+     </div>
+     <div class="row" style="margin-top:10px"><label style="width:180px">Cerrar aberturas menores a</label><select id="vGap" style="max-width:290px"><option value="0.25" selected>25 cm (sólo une tramos)</option><option value="0.6">60 cm (cierra ventanas angostas)</option><option value="1.2">1,2 m (cierra puertas y ventanas)</option></select></div>
+     <div class="row"><label style="width:180px">Muros actuales del plano</label><select id="vMode" style="max-width:290px"><option value="replace">Reemplazarlos</option><option value="add">Agregar a los existentes</option></select></div>
+     <div class="btns"><button class="pri" id="vOk">Aplicar muros</button><button id="vNo">${fromImport?'Omitir':'Cancelar'}</button></div>`);
+    $('#modalBox').style.maxWidth='1100px';
+    const cvp=$('#vPrev'),box=cvp.getBoundingClientRect(),dprp=window.devicePixelRatio||1,PW=Math.round(box.width*dprp),PH=Math.round(PW*f.h/f.w);
+    cvp.width=PW;cvp.height=PH;cvp.style.height=(PH/dprp)+'px';const gp=cvp.getContext('2d'),k=PW/f.w;let hover=-1;
+    const im=getImg(f);
+    const sel=()=>[...document.querySelectorAll('#vList input[type=checkbox]')].filter(x=>x.checked).map(x=>styles[+x.dataset.i]);
+    const result=()=>simplifySegs(sel().flatMap(o=>o.segs),ppm,+$('#vGap').value,.12);
+    const paintP=()=>{
+      gp.fillStyle='#fff';gp.fillRect(0,0,PW,PH);
+      if(im&&im.complete&&im.naturalWidth){gp.globalAlpha=.35;gp.drawImage(im,0,0,PW,PH);gp.globalAlpha=1;}
+      const segs=result();gp.strokeStyle='#d61f1f';gp.lineWidth=Math.max(1,1.4*dprp);gp.beginPath();
+      for(const s of segs){gp.moveTo(s[0]*k,s[1]*k);gp.lineTo(s[2]*k,s[3]*k);}gp.stroke();
+      if(hover>=0){gp.strokeStyle='#195fc8';gp.lineWidth=Math.max(1,1.6*dprp);gp.beginPath();for(const s of styles[hover].segs){gp.moveTo(s[0]*k,s[1]*k);gp.lineTo(s[2]*k,s[3]*k);}gp.stroke();}
+      $('#vCount').textContent=`${fmt(segs.length,0)} muros después de unir los tramos alineados.`;
+    };
+    paintP();
+    document.querySelectorAll('#vList input').forEach(x=>x.onchange=paintP);$('#vGap').onchange=paintP;
+    document.querySelectorAll('#vList .vrow').forEach(el=>{el.onmouseenter=()=>{hover=+el.dataset.i;paintP();};el.onmouseleave=()=>{hover=-1;paintP();};});
+    const done=()=>{$('#modalBox').style.maxWidth='';closeModal();resolve();};
+    $('#vNo').onclick=done;
+    $('#vOk').onclick=()=>{const segs=result();if(!segs.length){toast('No hay estilos marcados');return;}
+      f.walls=$('#vMode').value==='add'?f.walls.concat(segs):segs;wallsVer++;covCache.clear();st.show.walls=true;$('#vWalls').checked=true;
+      if(JSON.stringify(P).length>240000)toast('Ojo: el proyecto quedó muy pesado para guardarlo en la nube. Prueba con menos estilos o cerrando aberturas más grandes.',8000);
+      commit();renderAll();done();toast(`${fmt(segs.length,0)} muros leídos del PDF`);};
+  });
 }
 function rect(x,y,w,h){return[[x,y,x+w,y],[x,y+h,x+w,y+h],[x,y,x,y+h],[x+w,y,x+w,y+h]];}
 // filtro binario separable: erode=1 (mínimo) o dilate=0 (máximo), ventana k, dirección h/v
