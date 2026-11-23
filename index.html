@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planificador CCTV</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#16202e;--mut:#5f6b7a;--line:#dfe3e8;--bg:#f4f5f7;--panel:#fff;--acc:#195fc8;--accs:#e6efff;--red:#c8381a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.4 "IBM Plex Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px}
+button:hover{border-color:#b9c1cc}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+button.danger{color:var(--red)}
+input,select,textarea{border:1px solid var(--line);border-radius:6px;padding:4px 7px;background:#fff;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accs);border-color:var(--acc)}
+header{height:50px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--ink);color:#fff;flex:none}
+header .brand{font-weight:700;letter-spacing:.01em;margin-right:6px;white-space:nowrap}
+header select,header input{background:#243146;border-color:#344259;color:#fff}
+header button{background:#243146;border-color:#344259;color:#fff}
+header button:hover{border-color:#5a6b86}
+#projName{width:300px}
+#saveState{font-size:12px;color:#aeb8c7;white-space:nowrap}
+.spacer{flex:1}
+.menu{position:relative}
+.menu-list{display:none;position:absolute;right:0;top:110%;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:230px;z-index:20;padding:4px}
+.menu-list.on{display:block}
+.menu-list button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);padding:7px 10px}
+.menu-list button:hover{background:var(--bg)}
+main{flex:1;display:flex;min-height:0}
+aside{background:var(--panel);overflow:auto;flex:none}
+#left{width:250px;border-right:1px solid var(--line);padding:10px 12px}
+#right{width:330px;border-left:1px solid var(--line);padding:12px 14px}
+h4{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut)}
+h4:first-child{margin-top:2px}
+h3{margin:0 0 8px;font-size:16px}
+.floor{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:pointer;border:1px solid transparent}
+.floor:hover{background:var(--bg)}
+.floor.on{background:var(--accs);border-color:#c5d7f5;font-weight:600}
+.floor .n{margin-left:auto;font-size:12px;color:var(--mut);font-weight:400}
+.tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tools button{text-align:left;padding:6px 8px;font-size:13px}
+.tools button.on{background:var(--accs);border-color:var(--acc);color:var(--acc);font-weight:600}
+kbd{font:600 10px "IBM Plex Mono",monospace;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--mut);float:right;margin-top:2px}
+.row{display:flex;gap:6px;align-items:center;margin:5px 0}
+.row label{flex:none;width:92px;color:var(--mut);font-size:13px}
+.row input,.row select,.row textarea{flex:1;width:100%}
+.chk{display:flex;align-items:center;gap:7px;margin:4px 0;font-size:13px;cursor:pointer}
+.small{font-size:12px;color:var(--mut)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#stage{flex:1;position:relative;min-width:0;background:#e9ecef;overflow:hidden}
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#hint{position:absolute;left:12px;bottom:12px;background:rgba(22,32,46,.88);color:#fff;font-size:13px;padding:6px 10px;border-radius:7px;pointer-events:none;max-width:70%}
+#hint:empty{display:none}
+#zoom{position:absolute;right:12px;bottom:12px;display:flex;gap:4px}
+#zoom button{width:34px;height:32px;padding:0;font-weight:600}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--mut);text-align:center;padding:20px}
+#empty.on{display:flex}
+.rng{display:flex;gap:6px;align-items:center;flex:1}
+.rng input[type=range]{flex:1;padding:0}
+.rng input[type=number]{width:62px;flex:none}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px;margin:4px 0}
+table.t th,table.t td{text-align:left;padding:4px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t th{color:var(--mut);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+table.t td.num,table.t th.num{text-align:right;white-space:nowrap}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 4px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.kpi b{display:block;font-size:20px;line-height:1.1}
+.kpi span{font-size:11.5px;color:var(--mut)}
+.list{max-height:none}
+.li{display:flex;gap:8px;padding:5px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+.li:hover{background:var(--bg)}
+.li .c{font:600 12px "IBM Plex Mono",monospace;width:38px;flex:none}
+.li .z{flex:1;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code{font:600 13px "IBM Plex Mono",monospace}
+.modal{position:fixed;inset:0;background:rgba(15,22,33,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal.on{display:flex}
+.modal .box{background:#fff;border-radius:12px;max-width:860px;width:100%;max-height:90vh;overflow:auto;padding:18px 20px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal h3{margin-top:0}
+.typetbl input{width:100%;padding:3px 5px}
+.typetbl td{padding:3px 3px}
+#toast{position:fixed;left:50%;top:62px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;z-index:60;display:none;max-width:80vw}
+#toast.on{display:block}
+#busy{position:fixed;inset:0;background:rgba(255,255,255,.6);display:none;align-items:center;justify-content:center;z-index:70;font-weight:600}
+#busy.on{display:flex}
+.banner{background:#fff4d6;color:#7a5600;border:1px solid #f0d58a;border-radius:7px;padding:6px 9px;font-size:12.5px;margin-bottom:8px}
+@media (max-width:1000px){#left{width:210px}#right{width:270px}#projName{width:160px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Planificador CCTV</div>
+  <select id="projSel" title="Proyecto"></select>
+  <input id="projName" placeholder="Nombre del proyecto">
+  <button id="btnNewProj" title="Crear un proyecto vacío">Nuevo</button>
+  <span id="saveState"></span>
+  <div class="spacer"></div>
+  <button id="btnUndo" title="Deshacer (Ctrl+Z)">↶</button>
+  <button id="btnRedo" title="Rehacer (Ctrl+Shift+Z)">↷</button>
+  <div class="menu">
+    <button id="btnFile">Archivo ▾</button>
+    <div class="menu-list" id="fileMenu">
+      <button data-act="png">Exportar plano actual (PNG)</button>
+      <button data-act="csv">Exportar listado de cámaras (CSV)</button>
+      <button data-act="json">Exportar proyecto (JSON)</button>
+      <button data-act="import">Importar proyecto (JSON)…</button>
+      <button data-act="types">Editar tipos de cámara…</button>
+      <button data-act="delproj" class="danger">Eliminar este proyecto…</button>
+    </div>
+  </div>
+  <button id="btnHelp" title="Ayuda y atajos">?</button>
+</header>
+<main>
+  <aside id="left">
+    <h4>Planos</h4>
+    <div id="floorList"></div>
+    <div class="btns"><button id="btnAddFloor">+ Agregar plano</button></div>
+    <div class="small" style="margin-top:4px">Imagen (JPG/PNG) o PDF</div>
+    <div id="floorCfg"></div>
+
+    <h4>Herramientas</h4>
+    <div class="tools" id="tools">
+      <button data-tool="select">Seleccionar <kbd>V</kbd></button>
+      <button data-tool="cam">Cámara <kbd>C</kbd></button>
+      <button data-tool="wall">Muro <kbd>W</kbd></button>
+      <button data-tool="measure">Medir <kbd>M</kbd></button>
+    </div>
+
+    <h4>Tipo para nuevas cámaras</h4>
+    <select id="newType" style="width:100%"></select>
+    <div class="btns"><button id="btnTypes">Editar tipos…</button></div>
+
+    <h4>Vista</h4>
+    <label class="chk"><input type="checkbox" id="vCov" checked> Coberturas</label>
+    <label class="chk"><input type="checkbox" id="vIdent" checked> Zona de identificación</label>
+    <label class="chk"><input type="checkbox" id="vLabels" checked> Códigos</label>
+    <label class="chk"><input type="checkbox" id="vWalls"> Mostrar muros</label>
+    <label class="chk"><input type="checkbox" id="vOther"> Sólo fase…</label>
+    <select id="vPhase" style="width:100%;display:none"></select>
+    <div class="row" style="margin-top:8px"><label style="width:70px">Aclarar plano</label><input type="range" id="vDim" min="0" max="0.8" step="0.05" value="0.35"></div>
+  </aside>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hint"></div>
+    <div id="zoom"><button id="zIn" title="Acercar">+</button><button id="zOut" title="Alejar">−</button><button id="zFit" title="Ajustar a pantalla">⤢</button></div>
+    <div id="empty"><div style="font-size:18px;font-weight:600;color:var(--ink)">Este proyecto aún no tiene planos</div><div>Sube una imagen o un PDF del plano para empezar a ubicar cámaras.</div><button class="pri" id="btnAddFloor2">+ Agregar plano</button></div>
+  </div>
+
+  <aside id="right"><div id="props"></div></aside>
+</main>
+
+<input type="file" id="fileFloor" accept="image/*,.pdf,application/pdf" hidden>
+<input type="file" id="fileImport" accept=".json,application/json" hidden>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div id="toast"></div>
+<div id="busy">Procesando…</div>
+
+<script>
+"use strict";
+/* ---------------- utilidades ---------------- */
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmt=(n,d=1)=>Number(n).toLocaleString('es-CL',{maximumFractionDigits:d,minimumFractionDigits:0});
+const clone=o=>JSON.parse(JSON.stringify(o));
+let toastT;
+function toast(msg,ms=3200){const t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms);}
+function busy(on,msg){const b=$('#busy');b.textContent=msg||'Procesando…';b.classList.toggle('on',!!on);}
+const LS={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const PHASES=['Fase 1','Fase 2','Salas','Opcional'];
+
+/* ---------------- tipos de cámara ---------------- */
+const TYPES0=[
+ {id:'bullet',name:'Bullet 4MP varifocal IR 50 m',color:'#d6451e',fov:40,range:30,ident:12,mbps:2,poe:8,price:0},
+ {id:'turret',name:'Turret 4MP varifocal (pasillos)',color:'#0e8f8a',fov:30,range:28,ident:12,mbps:1.5,poe:7,price:0},
+ {id:'domo',name:'Domo 4MP 2.8 mm IK10',color:'#195fc8',fov:100,range:15,ident:5,mbps:1.5,poe:6,price:0},
+ {id:'domo_sala',name:'Domo sala 2.8 mm (sin audio)',color:'#823caa',fov:95,range:9,ident:5,mbps:1.2,poe:6,price:0},
+ {id:'domo_rejilla',name:'Domo con rejilla (multicancha)',color:'#5f8a1e',fov:90,range:20,ident:6,mbps:1.5,poe:6,price:0},
+ {id:'ptz',name:'PTZ 4MP 25x',color:'#3a4558',fov:60,range:80,ident:35,mbps:3,poe:25,price:0},
+ {id:'fisheye',name:'Fisheye 360° 6MP',color:'#b0377a',fov:360,range:10,ident:4,mbps:2,poe:7,price:0},
+];
+
+/* ---------------- estado ---------------- */
+let P=null;                 // proyecto actual
+const projData={};          // id -> datos
+let db=null, assetsCap=null, dl=null, readonly=false;
+const st={floor:null,sel:null,tool:'select',view:{s:.3,ox:0,oy:0},show:{cov:true,ident:true,labels:true,walls:false,phase:null},dim:.35,newType:'domo',wallDraft:null,two:null,mouse:null,snap:null};
+const covCache=new Map();
+let wallsVer=0;
+
+function newProject(name){return{id:uid(),name:name||'Proyecto nuevo',floors:[],cameras:[],types:clone(TYPES0),settings:{days:30}};}
+function normalize(p){
+  p.floors=p.floors||[];p.cameras=p.cameras||[];p.settings=Object.assign({days:30},p.settings||{});
+  if(!Array.isArray(p.types)||!p.types.length)p.types=clone(TYPES0);
+  p.floors.forEach(f=>{f.walls=f.walls||[];});
+  p.cameras.forEach(c=>{if(!p.types.find(t=>t.id===c.type))c.type=p.types[0].id;});
+  return p;
+}
+const curFloor=()=>P&&P.floors.find(f=>f.id===st.floor);
+const typeOf=c=>P.types.find(t=>t.id===c.type)||P.types[0];
+const selCam=()=>st.sel&&st.sel.kind==='cam'?P.cameras.find(c=>c.id===st.sel.id):null;
+const floorCams=f=>P.cameras.filter(c=>c.floor===f.id);
+function visibleCams(f){return floorCams(f).filter(c=>!st.show.phase||c.phase===st.show.phase);}
+
+/* ---------------- deshacer ---------------- */
+let undoS=[],redoS=[],lastSnap=null;
+function snapNow(){return JSON.stringify(P);}
+function resetHistory(){undoS=[];redoS=[];lastSnap=snapNow();}
+function commit(){const s=snapNow();if(s===lastSnap)return;undoS.push(lastSnap);if(undoS.length>80)undoS.shift();redoS=[];lastSnap=s;markDirty();}
+function restore(s){P=normalize(JSON.parse(s));lastSnap=s;covCache.clear();wallsVer++;if(!curFloor())st.floor=P.floors[0]?.id||null;if(st.sel&&st.sel.kind==='cam'&&!selCam())st.sel=null;if(st.sel&&st.sel.kind==='wall')st.sel=null;renderAll();markDirty();}
+function undo(){if(!undoS.length)return;redoS.push(snapNow());restore(undoS.pop());}
+function redo(){if(!redoS.length)return;undoS.push(snapNow());restore(redoS.pop());}
+
+/* ---------------- guardado ---------------- */
+let saveT=null,saving=false,pending=false,dirty=false;
+function setSave(t){$('#saveState').textContent=t;}
+function markDirty(){if(!P)return;LS.set('cctv-local-'+P.id,P);if(readonly){setSave('Solo lectura');return;}dirty=true;setSave('Cambios sin guardar…');clearTimeout(saveT);saveT=setTimeout(save,900);}
+async function save(){
+  if(!P||readonly)return;
+  if(saving){pending=true;return;}
+  saving=true;pending=false;dirty=false;clearTimeout(saveT);
+  const data=clone(P);
+  const size=JSON.stringify(data).length;
+  if(size>250000){setSave('Proyecto muy grande para guardar');toast('El proyecto supera el tamaño máximo de guardado (≈250 KB). Reduce muros o divide el proyecto.',6000);saving=false;return;}
+  if(db){
+    setSave('Guardando…');
+    try{await db.doc('projects/'+P.id).set(data);projData[P.id]=data;setSave('Guardado');refreshProjSel();}
+    catch(e){
+      if(e&&e.code==='invalid_argument'){readonly=true;setSave('Solo lectura');toast('No tienes permiso para guardar cambios en este planificador.',5000);}
+      else if(e&&e.code==='quota_exceeded'){setSave('Sin espacio');toast('Se llenó el espacio de guardado: '+(e.message||''),6000);}
+      else{setSave('Error al guardar, reintentando…');setTimeout(save,4000);}
+    }
+  }else{
+    const idx=LS.get('cctv-local-index')||{};idx[P.id]=P.name;LS.set('cctv-local-index',idx);projData[P.id]=data;setSave('Guardado en este navegador');refreshProjSel();
+  }
+  saving=false;if(pending)save();
+}
+async function loadProjects(){
+  const idx={};
+  if(db){
+    try{
+      const snap=await Promise.race([db.collection('projects').get(),new Promise((_,r)=>setTimeout(()=>r({code:'timeout'}),10000))]);
+      snap.docs.forEach(d=>{const v=d.data();if(v&&v.name!==undefined){projData[d.id]=clone(v);projData[d.id].id=d.id;}});
+    }catch(e){toast('No se pudo conectar con el guardado. Trabajando en modo local.',5000);db=null;}
+  }
+  if(!db){const li=LS.get('cctv-local-index')||{};Object.keys(li).forEach(id=>{const v=LS.get('cctv-local-'+id);if(v)projData[id]=v;});}
+}
+function refreshProjSel(){
+  const sel=$('#projSel');const ids=Object.keys(projData);if(P&&!ids.includes(P.id))ids.push(P.id);
+  sel.innerHTML=ids.map(id=>`<option value="${esc(id)}">${esc(id===P?.id?P.name:projData[id].name)}</option>`).join('');
+  if(P)sel.value=P.id;sel.style.display=ids.length>1?'':'none';
+}
+function openProject(p){
+  P=normalize(clone(p));st.floor=P.floors[0]?.id||null;st.sel=null;st.wallDraft=null;st.two=null;covCache.clear();wallsVer++;
+  if(!P.types.find(t=>t.id===st.newType))st.newType=P.types[0].id;
+  LS.set('cctv-last',P.id);resetHistory();renderAll();fitView();
+}
+
+/* ---------------- capacidades ---------------- */
+async function initCaps(){
+  const use=window.claude&&window.claude.use?window.claude.use.bind(window.claude):null;
+  if(use){
+    [db,assetsCap,dl]=await Promise.all([use('db').catch(()=>null),use('assets').catch(()=>null),use('downloads').catch(()=>null)]);
+  }
+}
+
+/* ---------------- imágenes ---------------- */
+const imgs=new Map(),localUrls=new Map();
+const inClaude=()=>!!(window.claude&&window.claude.use);
+const IDB={_db:null,
+  open(){if(this._db)return this._db;this._db=new Promise((res,rej)=>{const r=indexedDB.open('cctv-planner',1);r.onupgradeneeded=()=>r.result.createObjectStore('blobs');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});return this._db;},
+  async put(k,b){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction('blobs','readwrite');t.objectStore('blobs').put(b,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});},
+  async get(k){const d=await this.open();return new Promise((res,rej)=>{const r=d.transaction('blobs').objectStore('blobs').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+};
+function floorSrc(f){
+  if(f.asset)return'/_blob/'+f.asset;
+  if(f.local){
+    const u=localUrls.get(f.local);if(u)return u;
+    if(!localUrls.has(f.local)){localUrls.set(f.local,null);IDB.get(f.local).then(b=>{if(b){localUrls.set(f.local,URL.createObjectURL(b));}else{localUrls.set(f.local,'missing:'+f.local);}draw();}).catch(()=>{localUrls.set(f.local,'missing:'+f.local);draw();});}
+    return null;
+  }
+  return f.src;
+}
+// guarda la imagen de un plano donde se pueda: assets (claude.ai) o IndexedDB (navegador)
+async function storeImage(blob){
+  if(assetsCap){const r=await assetsCap.upload(blob);return{asset:r.id};}
+  try{const k='img-'+uid();await IDB.put(k,blob);localUrls.set(k,URL.createObjectURL(blob));return{local:k};}
+  catch(e){const u=URL.createObjectURL(blob);return{src:u,_tmp:true};}
+}
+function getImg(f){
+  const src=floorSrc(f);if(!src)return null;
+  if(src.startsWith('missing:')){return{_err:true,complete:true,naturalWidth:0,addEventListener(){} };}
+  let im=imgs.get(src);
+  if(!im){im=new Image();im.onload=()=>{draw();};im.onerror=()=>{im._err=true;draw();};im.src=src;imgs.set(src,im);}
+  return im;
+}
+function loadImg(f){return new Promise((res,rej)=>{const im=getImg(f);if(!im)return rej(new Error('el plano aún se está cargando'));if(im._err)return rej(new Error('No se pudo cargar el plano'));if(im.complete&&im.naturalWidth)return res(im);im.addEventListener('load',()=>res(im),{once:true});im.addEventListener('error',()=>rej(new Error('No se pudo cargar el plano')),{once:true});});}
+
+/* ---------------- geometría / cobertura ---------------- */
+function raySeg(px,py,dx,dy,w){
+  const x1=w[0],y1=w[1],ex=w[2]-x1,ey=w[3]-y1,den=dx*ey-dy*ex;
+  if(Math.abs(den)<1e-9)return Infinity;
+  const qx=x1-px,qy=y1-py,t=(qx*ey-qy*ex)/den,u=(qx*dy-qy*dx)/den;
+  return(t<0||u<-1e-6||u>1+1e-6)?Infinity:t;
+}
+function coverage(c,f){
+  const key=[c.x,c.y,c.dir,c.fov,c.range,c.ident,f.pxPerM,wallsVer].join('|');
+  const hit=covCache.get(c.id);if(hit&&hit.key===key)return hit;
+  const ppm=f.pxPerM||40,R=Math.max(.1,+c.range||1)*ppm,I=Math.max(0,Math.min(+c.ident||0,+c.range||0))*ppm;
+  const fov=clamp(+c.fov||60,1,360),full=fov>=360;
+  const n=clamp(Math.round(fov/1),16,360);
+  const a0=(c.dir-fov/2)*Math.PI/180,da=fov*Math.PI/180/n,eps=.3*ppm,walls=f.walls||[];
+  const outer=full?[]:[[c.x,c.y]],inner=full?[]:[[c.x,c.y]];
+  let area=0;
+  for(let i=0;i<=n;i++){
+    if(full&&i===n)break;
+    const a=a0+da*i,dx=Math.cos(a),dy=Math.sin(a);let t=R;
+    for(let j=0;j<walls.length;j++){const h=raySeg(c.x,c.y,dx,dy,walls[j]);if(h>eps&&h<t)t=h;}
+    outer.push([c.x+dx*t,c.y+dy*t]);const ti=Math.min(t,I);inner.push([c.x+dx*ti,c.y+dy*ti]);
+    if(i<n)area+=0.5*t*t*da;
+  }
+  const res={key,outer,inner,areaM2:area/(ppm*ppm)};covCache.set(c.id,res);return res;
+}
+
+/* ---------------- canvas / vista ---------------- */
+const cv=$('#cv'),ctx=cv.getContext('2d');let dpr=1,CW=0,CH=0,raf=0;
+function resize(){const r=$('#stage').getBoundingClientRect();dpr=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=Math.round(CW*dpr);cv.height=Math.round(CH*dpr);draw();}
+new ResizeObserver(resize).observe($('#stage'));
+function fitView(){const f=curFloor();if(!f||!CW)return;const s=Math.min(CW/f.w,CH/f.h)*.96;st.view={s,ox:(CW-f.w*s)/2,oy:(CH-f.h*s)/2};draw();}
+function zoomAt(k,sx,sy){const v=st.view,ns=clamp(v.s*k,.03,8);const ix=(sx-v.ox)/v.s,iy=(sy-v.oy)/v.s;v.s=ns;v.ox=sx-ix*ns;v.oy=sy-iy*ns;draw();}
+const toImg=p=>({x:(p.x-st.view.ox)/st.view.s,y:(p.y-st.view.oy)/st.view.s});
+const toScr=(x,y)=>({x:x*st.view.s+st.view.ox,y:y*st.view.s+st.view.oy});
+function draw(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;paint();});}
+function hexA(hex,a){const h=hex.replace('#','');const n=parseInt(h.length===3?h.split('').map(x=>x+x).join(''):h,16);return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+function poly(g,pts){g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();}
+
+function drawLayer(g,f,s,opt={}){
+  // s = píxeles de pantalla por píxel de imagen (para grosor de líneas y textos)
+  const cams=visibleCams(f),sc=selCam();
+  if(st.show.walls||st.tool==='wall'||opt.walls){
+    g.lineCap='round';
+    f.walls.forEach((w,i)=>{const on=st.sel&&st.sel.kind==='wall'&&st.sel.i===i&&!opt.export;g.strokeStyle=on?'#ff9d00':'rgba(220,30,30,.75)';g.lineWidth=(on?6:3.5)/s;g.beginPath();g.moveTo(w[0],w[1]);g.lineTo(w[2],w[3]);g.stroke();});
+  }
+  if(st.show.cov){
+    cams.forEach(c=>{const t=typeOf(c),cov=coverage(c,f),on=sc===c&&!opt.export;
+      poly(g,cov.outer);g.fillStyle=hexA(t.color,on?.26:.15);g.fill();g.strokeStyle=hexA(t.color,on?.9:.45);g.lineWidth=(on?2:1)/s;g.stroke();
+      if(st.show.ident&&c.ident>0){poly(g,cov.inner);g.fillStyle=hexA(t.color,on?.3:.2);g.fill();}
+    });
+  }
+  const r=8.5/s;
+  cams.forEach(c=>{const t=typeOf(c),on=sc===c&&!opt.export,a=c.dir*Math.PI/180;
+    g.strokeStyle=t.color;g.lineWidth=2.2/s;
+    if(c.fov<360){g.beginPath();g.moveTo(c.x,c.y);g.lineTo(c.x+Math.cos(a)*r*2.1,c.y+Math.sin(a)*r*2.1);g.stroke();}
+    g.beginPath();g.arc(c.x,c.y,on?r*1.3:r,0,Math.PI*2);g.fillStyle=t.color;g.fill();g.lineWidth=(on?3:2)/s;g.strokeStyle='#fff';g.stroke();
+    if(on){g.beginPath();g.arc(c.x,c.y,r*2,0,Math.PI*2);g.strokeStyle=t.color;g.lineWidth=1.5/s;g.setLineDash([4/s,3/s]);g.stroke();g.setLineDash([]);
+      if(c.fov<360){const hx=c.x+Math.cos(a)*46/s,hy=c.y+Math.sin(a)*46/s;g.beginPath();g.moveTo(c.x,c.y);g.lineTo(hx,hy);g.strokeStyle=t.color;g.lineWidth=2/s;g.stroke();g.beginPath();g.arc(hx,hy,7/s,0,Math.PI*2);g.fillStyle='#fff';g.fill();g.strokeStyle=t.color;g.lineWidth=2.5/s;g.stroke();}}
+    if(st.show.labels){const fs=12.5/s;g.font=`600 ${fs}px "IBM Plex Mono",monospace`;const tw=g.measureText(c.code).width;const lx=c.x-tw/2,ly=c.y-r-fs*1.55;
+      g.fillStyle='rgba(255,255,255,.92)';g.strokeStyle=t.color;g.lineWidth=1.2/s;g.beginPath();g.roundRect?g.roundRect(lx-4/s,ly,tw+8/s,fs*1.35,3/s):g.rect(lx-4/s,ly,tw+8/s,fs*1.35);g.fill();g.stroke();
+      g.fillStyle=t.color;g.textBaseline='top';g.fillText(c.code,lx,ly+fs*.17);}
+  });
+}
+function paint(){
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
+  const f=curFloor();$('#empty').classList.toggle('on',!f&&!st.loading);if(!f){hint();return;}
+  const v=st.view;ctx.setTransform(dpr*v.s,0,0,dpr*v.s,dpr*v.ox,dpr*v.oy);
+  const im=getImg(f);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,f.w,f.h);
+  if(im&&im.complete&&im.naturalWidth){ctx.drawImage(im,0,0,f.w,f.h);}
+  else{ctx.fillStyle='#999';ctx.font=`${16/v.s}px sans-serif`;ctx.fillText(im&&im._err?'No se pudo cargar la imagen de este plano':'Cargando plano…',20/v.s,40/v.s);}
+  if(st.dim>0){ctx.fillStyle=`rgba(255,255,255,${st.dim})`;ctx.fillRect(0,0,f.w,f.h);}
+  drawLayer(ctx,f,v.s);
+  const s=v.s;
+  // borrador de muro
+  if(st.tool==='wall'&&st.wallDraft&&st.mouse){const l=st.wallDraft.last,m=wallTarget(st.mouse,st.shift);ctx.strokeStyle='#ff9d00';ctx.lineWidth=3/s;ctx.setLineDash([6/s,4/s]);ctx.beginPath();ctx.moveTo(l.x,l.y);ctx.lineTo(m.x,m.y);ctx.stroke();ctx.setLineDash([]);
+    const d=Math.hypot(m.x-l.x,m.y-l.y)/(f.pxPerM||1);if(f.pxPerM)label(ctx,(l.x+m.x)/2,(l.y+m.y)/2,fmt(d,2)+' m',s);}
+  if(st.tool==='wall'&&st.snap){ctx.beginPath();ctx.arc(st.snap.x,st.snap.y,7/s,0,Math.PI*2);ctx.strokeStyle='#ff9d00';ctx.lineWidth=2/s;ctx.stroke();}
+  // medir / calibrar
+  if(st.two){const a=st.two.a,b=st.two.b||st.mouse;if(a&&b){ctx.strokeStyle=st.two.mode==='calib'?'#0e8f8a':'#16202e';ctx.lineWidth=2.5/s;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();[a,b].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4/s,0,7);ctx.fill();});
+    if(st.two.mode==='measure'&&f.pxPerM)label(ctx,(a.x+b.x)/2,(a.y+b.y)/2,fmt(Math.hypot(b.x-a.x,b.y-a.y)/f.pxPerM,2)+' m',s);}}
+  hint();
+}
+function label(g,x,y,t,s){const fs=13/s;g.font=`600 ${fs}px "IBM Plex Sans",sans-serif`;const w=g.measureText(t).width;g.fillStyle='rgba(22,32,46,.9)';g.fillRect(x-w/2-5/s,y-fs*.8,w+10/s,fs*1.6);g.fillStyle='#fff';g.textBaseline='middle';g.fillText(t,x-w/2,y);}
+function hint(){
+  const f=curFloor();let t='';
+  if(f){
+    if(!f.pxPerM&&st.tool!=='calib')t='Este plano no tiene escala. Usa "Calibrar escala" en el panel izquierdo para que los alcances en metros sean reales.';
+    if(st.tool==='cam')t='Haz clic en el plano para ubicar una cámara del tipo seleccionado. Arrastra el punto blanco para orientarla.';
+    else if(st.tool==='wall')t=st.wallDraft?'Clic para seguir el muro · Shift: recto · Doble clic, Enter o Esc para terminar':'Clic para iniciar un muro. Los muros cortan la cobertura de las cámaras.';
+    else if(st.tool==='measure')t='Clic en dos puntos para medir la distancia.';
+    else if(st.tool==='calib')t=st.two&&st.two.a?'Clic en el segundo punto de la cota conocida.':'Calibrar: clic en el primer punto de una distancia conocida (por ejemplo, entre dos ejes).';
+  }
+  $('#hint').textContent=t;
+}
+
+/* ---------------- interacción ---------------- */
+const ptrs=new Map();let drag=null,pinch=null,spaceDown=false;
+function evPt(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function hitCam(p){const f=curFloor();if(!f)return null;const cs=visibleCams(f);for(let i=cs.length-1;i>=0;i--){const c=cs[i],q=toScr(c.x,c.y);if(Math.hypot(q.x-p.x,q.y-p.y)<13)return c;}return null;}
+function hitHandle(c,p){if(c.fov>=360)return false;const a=c.dir*Math.PI/180,q=toScr(c.x,c.y);return Math.hypot(q.x+Math.cos(a)*46-p.x,q.y+Math.sin(a)*46-p.y)<11;}
+function hitWall(p){const f=curFloor();if(!f||!(st.show.walls||st.tool==='wall'))return -1;let best=-1,bd=7;f.walls.forEach((w,i)=>{const a=toScr(w[0],w[1]),b=toScr(w[2],w[3]);const d=distSeg(p,a,b);if(d<bd){bd=d;best=i;}});return best;}
+function distSeg(p,a,b){const vx=b.x-a.x,vy=b.y-a.y,l=vx*vx+vy*vy;let t=l?((p.x-a.x)*vx+(p.y-a.y)*vy)/l:0;t=clamp(t,0,1);return Math.hypot(p.x-a.x-t*vx,p.y-a.y-t*vy);}
+function wallTarget(m,shift){
+  const f=curFloor();let x=m.x,y=m.y;st.snap=null;
+  const sp=toScr(x,y);let bd=10;
+  f.walls.forEach(w=>{[[w[0],w[1]],[w[2],w[3]]].forEach(([wx,wy])=>{const q=toScr(wx,wy),d=Math.hypot(q.x-sp.x,q.y-sp.y);if(d<bd){bd=d;st.snap={x:wx,y:wy};}});});
+  if(st.snap){x=st.snap.x;y=st.snap.y;}
+  else if(shift&&st.wallDraft){const l=st.wallDraft.last;if(Math.abs(x-l.x)>Math.abs(y-l.y))y=l.y;else x=l.x;}
+  return{x:Math.round(x),y:Math.round(y)};
+}
+function nextCode(){let n=0;P.cameras.forEach(c=>{const m=/^C(\d+)$/.exec(c.code);if(m)n=Math.max(n,+m[1]);});return'C'+(n+1);}
+function placeCam(ip){
+  const f=curFloor(),t=P.types.find(x=>x.id===st.newType)||P.types[0];
+  const c={id:uid(),code:nextCode(),floor:f.id,x:Math.round(ip.x),y:Math.round(ip.y),dir:-90,fov:t.fov,range:t.range,ident:t.ident,type:t.id,phase:'',zone:'',height:3,notes:''};
+  P.cameras.push(c);st.sel={kind:'cam',id:c.id};commit();renderProps();renderFloors();draw();
+  return c;
+}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);const p=evPt(e);ptrs.set(e.pointerId,p);
+  closeMenus();
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2};drag=null;return;}
+  const f=curFloor();
+  if(!f||e.button===1||e.button===2||spaceDown){drag={kind:'pan',sx:p.x,sy:p.y,ox:st.view.ox,oy:st.view.oy};return;}
+  const ip=toImg(p);
+  if(st.tool==='wall'){
+    if(readonly)return;
+    const m=wallTarget(ip,e.shiftKey);
+    if(st.wallDraft){const l=st.wallDraft.last;if(Math.hypot(m.x-l.x,m.y-l.y)>2){f.walls.push([l.x,l.y,m.x,m.y]);wallsVer++;st.wallDraft.n++;}st.wallDraft.last=m;}
+    else st.wallDraft={last:m,n:0};
+    draw();return;
+  }
+  if(st.tool==='measure'||st.tool==='calib'){
+    if(!st.two||st.two.b||st.two.mode!==st.tool)st.two={mode:st.tool,a:ip,b:null};
+    else{st.two.b=ip;if(st.tool==='calib')askCalib();}
+    draw();return;
+  }
+  const sc=selCam();
+  if(sc&&hitHandle(sc,p)&&!readonly){drag={kind:'rot',cam:sc};return;}
+  const hc=hitCam(p);
+  if(hc){st.sel={kind:'cam',id:hc.id};renderProps();draw();if(!readonly)drag={kind:'move',cam:hc,dx:ip.x-hc.x,dy:ip.y-hc.y,moved:false};return;}
+  if(st.tool==='cam'&&!readonly){placeCam(ip);return;}
+  const hw=hitWall(p);
+  if(hw>=0){st.sel={kind:'wall',i:hw};renderProps();draw();return;}
+  if(st.sel){st.sel=null;renderProps();draw();}
+  drag={kind:'pan',sx:p.x,sy:p.y,ox:st.view.ox,oy:st.view.oy};
+});
+cv.addEventListener('pointermove',e=>{
+  const p=evPt(e);if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,p);
+  st.mouse=toImg(p);st.shift=e.shiftKey;
+  if(pinch&&ptrs.size===2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2;st.view.ox+=mx-pinch.mx;st.view.oy+=my-pinch.my;zoomAt(d/pinch.d,mx,my);pinch={d,mx,my};return;}
+  if(drag){
+    if(drag.kind==='pan'){st.view.ox=drag.ox+p.x-drag.sx;st.view.oy=drag.oy+p.y-drag.sy;draw();}
+    else if(drag.kind==='move'){const ip=st.mouse;drag.cam.x=Math.round(ip.x-drag.dx);drag.cam.y=Math.round(ip.y-drag.dy);drag.moved=true;draw();liveProps();}
+    else if(drag.kind==='rot'){const c=drag.cam,ip=st.mouse;let a=Math.atan2(ip.y-c.y,ip.x-c.x)*180/Math.PI;if(e.shiftKey)a=Math.round(a/15)*15;c.dir=Math.round(a);draw();liveProps();}
+    return;
+  }
+  if(st.tool==='wall'||st.two)draw();
+  if(st.tool==='select'||st.tool==='cam'){const sc=selCam();cv.style.cursor=(sc&&hitHandle(sc,p))?'grab':hitCam(p)?'move':(st.tool==='cam'?'crosshair':'default');}
+  else cv.style.cursor='crosshair';
+});
+function endPtr(e){ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;if(drag&&(drag.kind==='move'||drag.kind==='rot')){commit();renderProps();}drag=null;}
+cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
+cv.addEventListener('dblclick',()=>{if(st.tool==='wall')endWall();});
+cv.addEventListener('wheel',e=>{e.preventDefault();const p=evPt(e);if(e.ctrlKey||!e.shiftKey)zoomAt(Math.exp(-e.deltaY*.0016),p.x,p.y);},{passive:false});
+function endWall(){if(st.wallDraft&&st.wallDraft.n)commit();st.wallDraft=null;st.snap=null;draw();renderFloors();}
+function setTool(t){if(st.tool==='wall'&&t!=='wall')endWall();st.tool=t;if(t!=='measure'&&t!=='calib')st.two=null;document.querySelectorAll('#tools button').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));cv.style.cursor=t==='select'?'default':'crosshair';draw();}
+document.querySelectorAll('#tools button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+$('#zIn').onclick=()=>zoomAt(1.3,CW/2,CH/2);$('#zOut').onclick=()=>zoomAt(1/1.3,CW/2,CH/2);$('#zFit').onclick=fitView;
+
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();if(tag==='input'||tag==='textarea'||tag==='select')return;
+  if($('#modal').classList.contains('on')){if(e.key==='Escape')closeModal();return;}
+  const k=e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
+  if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();redo();return;}
+  if(e.key===' '){spaceDown=true;e.preventDefault();return;}
+  if(k==='v')setTool('select');else if(k==='c')setTool('cam');else if(k==='w')setTool('wall');else if(k==='m')setTool('measure');
+  else if(e.key==='Escape'||e.key==='Enter'){if(st.tool==='wall')endWall();else if(st.two){st.two=null;draw();}else if(st.sel){st.sel=null;renderProps();draw();}}
+  else if(e.key==='Delete'||e.key==='Backspace'){deleteSel();}
+  else if(k==='r'){const c=selCam();if(c){c.dir+=e.shiftKey?-15:15;commit();renderProps();draw();}}
+  else if(k==='d'){const c=selCam();if(c)duplicateCam(c);}
+  else if(k==='f')fitView();
+});
+document.addEventListener('keyup',e=>{if(e.key===' ')spaceDown=false;});
+function deleteSel(){if(readonly||!st.sel)return;if(st.sel.kind==='cam'){P.cameras=P.cameras.filter(c=>c.id!==st.sel.id);covCache.delete(st.sel.id);}else if(st.sel.kind==='wall'){const f=curFloor();f.walls.splice(st.sel.i,1);wallsVer++;}st.sel=null;commit();renderAll();}
+function duplicateCam(c){if(readonly)return;const n=clone(c);n.id=uid();n.code=nextCode();n.x+=40;n.y+=40;P.cameras.push(n);st.sel={kind:'cam',id:n.id};commit();renderAll();}
+
+/* ---------------- calibración ---------------- */
+function askCalib(){
+  const f=curFloor(),a=st.two.a,b=st.two.b,px=Math.hypot(b.x-a.x,b.y-a.y);
+  openModal(`<h3>Calibrar escala</h3><p>Marcaste una línea de <b>${fmt(px,0)} px</b> en la imagen. ¿Cuántos metros mide en la realidad?</p>
+  <div class="row"><label>Distancia real</label><input type="number" id="calM" step="0.01" min="0.01" placeholder="ej. 6.25"> <span>m</span></div>
+  <p class="small">Tip: usa la distancia entre dos ejes acotados del plano o el largo de un muro que conozcas.</p>
+  <div class="btns"><button class="pri" id="calOk">Aplicar</button><button id="calNo">Cancelar</button></div>`);
+  setTimeout(()=>$('#calM').focus(),30);
+  const ok=()=>{const m=parseFloat($('#calM').value);if(!(m>0)){toast('Ingresa una distancia válida');return;}f.pxPerM=px/m;covCache.clear();closeModal();st.two=null;setTool('select');commit();renderAll();toast(`Escala aplicada: 1 m = ${fmt(f.pxPerM,1)} px`);};
+  $('#calOk').onclick=ok;$('#calM').onkeydown=e=>{if(e.key==='Enter')ok();};$('#calNo').onclick=()=>{closeModal();st.two=null;draw();};
+}
+
+/* ---------------- paneles ---------------- */
+function renderAll(){renderHeader();renderFloors();renderTypesSel();renderPhaseSel();renderProps();draw();}
+function renderHeader(){$('#projName').value=P?P.name:'';refreshProjSel();$('#projName').disabled=readonly;}
+function renderFloors(){
+  const fl=$('#floorList');
+  fl.innerHTML=P.floors.map(f=>`<div class="floor ${f.id===st.floor?'on':''}" data-id="${esc(f.id)}">${esc(f.name)}<span class="n">${floorCams(f).length}</span></div>`).join('')||'<div class="small">Sin planos aún.</div>';
+  fl.querySelectorAll('.floor').forEach(d=>d.onclick=()=>{st.floor=d.dataset.id;st.sel=null;st.wallDraft=null;st.two=null;renderAll();fitView();});
+  const f=curFloor(),c=$('#floorCfg');
+  if(!f){c.innerHTML='';return;}
+  c.innerHTML=`<h4>Plano seleccionado</h4>
+   <div class="row"><label style="width:60px">Nombre</label><input id="fName" value="${esc(f.name)}"></div>
+   <div class="small">Escala: ${f.pxPerM?`1 m = ${fmt(f.pxPerM,1)} px`:'<b style="color:var(--red)">sin calibrar</b>'}</div>
+   <div class="btns"><button id="fCal">Calibrar escala</button></div>
+   <div class="small" style="margin-top:8px">Muros: ${f.walls.length}</div>
+   <div class="btns"><button id="fDetect">Detectar muros (auto)</button><button id="fClear" class="danger">Borrar muros</button></div>
+   <div class="btns"><button id="fUp" title="Subir">↑</button><button id="fDown" title="Bajar">↓</button><button id="fDel" class="danger">Quitar plano</button></div>`;
+  $('#fName').onchange=e=>{f.name=e.target.value||'Plano';commit();renderFloors();};
+  $('#fCal').onclick=()=>{setTool('calib');st.two=null;draw();};
+  $('#fDetect').onclick=()=>detectWallsUI(f);
+  $('#fClear').onclick=()=>confirmBox('¿Borrar todos los muros de este plano?','Borrar',()=>{f.walls=[];wallsVer++;commit();renderAll();});
+  $('#fUp').onclick=()=>moveFloor(f,-1);$('#fDown').onclick=()=>moveFloor(f,1);
+  $('#fDel').onclick=()=>confirmBox(`¿Quitar el plano "${esc(f.name)}" y sus ${floorCams(f).length} cámaras?`,'Quitar',()=>{P.cameras=P.cameras.filter(c=>c.floor!==f.id);P.floors=P.floors.filter(x=>x!==f);st.floor=P.floors[0]?.id||null;commit();renderAll();fitView();});
+}
+function moveFloor(f,d){const i=P.floors.indexOf(f),j=i+d;if(j<0||j>=P.floors.length)return;P.floors.splice(i,1);P.floors.splice(j,0,f);commit();renderFloors();}
+function renderTypesSel(){$('#newType').innerHTML=P.types.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');$('#newType').value=st.newType;}
+$('#newType').onchange=e=>{st.newType=e.target.value;setTool('cam');};
+function phasesUsed(){return[...new Set([...PHASES,...P.cameras.map(c=>c.phase).filter(Boolean)])];}
+function renderPhaseSel(){$('#vPhase').innerHTML=phasesUsed().map(p=>`<option>${esc(p)}</option>`).join('');if(st.show.phase)$('#vPhase').value=st.show.phase;}
+
+function liveProps(){const c=selCam();if(!c)return;const d=$('#pDir'),dn=$('#pDirN');if(d){d.value=c.dir;dn.value=c.dir;}const xy=$('#pXY');if(xy)xy.textContent=xyText(c);}
+function xyText(c){const f=P.floors.find(x=>x.id===c.floor);return f&&f.pxPerM?`${fmt(c.x/f.pxPerM,1)} m, ${fmt(c.y/f.pxPerM,1)} m`:`${c.x}, ${c.y} px`;}
+function renderProps(){
+  const box=$('#props');const c=selCam();
+  if(c){
+    const t=typeOf(c),f=P.floors.find(x=>x.id===c.floor),cov=f?coverage(c,f):null;
+    box.innerHTML=`${readonly?'<div class="banner">Solo lectura</div>':''}
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="sw" style="width:14px;height:14px;background:${t.color}"></span><h3 style="margin:0">Cámara <span class="code">${esc(c.code)}</span></h3><button id="pClose" style="margin-left:auto" title="Cerrar">✕</button></div>
+    <div class="row"><label>Código</label><input id="pCode" value="${esc(c.code)}"></div>
+    <div class="row"><label>Ubicación / qué cubre</label><textarea id="pZone" rows="2">${esc(c.zone)}</textarea></div>
+    <div class="row"><label>Tipo</label><select id="pType">${P.types.map(x=>`<option value="${esc(x.id)}" ${x.id===c.type?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    <div class="row"><label>Fase</label><input id="pPhase" list="phList" value="${esc(c.phase)}"><datalist id="phList">${phasesUsed().map(p=>`<option value="${esc(p)}">`).join('')}</datalist></div>
+    <div class="row"><label>Plano</label><select id="pFloor">${P.floors.map(x=>`<option value="${esc(x.id)}" ${x.id===c.floor?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    <h4>Orientación y cobertura</h4>
+    <div class="row"><label>Dirección (°)</label><div class="rng"><input type="range" id="pDir" min="-180" max="180" step="1" value="${normDir(c.dir)}"><input type="number" id="pDirN" value="${normDir(c.dir)}"></div></div>
+    <div class="row"><label>Ángulo (FOV °)</label><div class="rng"><input type="range" id="pFov" min="5" max="360" step="1" value="${c.fov}"><input type="number" id="pFovN" value="${c.fov}"></div></div>
+    <div class="row"><label>Alcance (m)</label><div class="rng"><input type="range" id="pRng" min="1" max="100" step="0.5" value="${c.range}"><input type="number" id="pRngN" step="0.5" value="${c.range}"></div></div>
+    <div class="row"><label>Identificación (m)</label><div class="rng"><input type="range" id="pIde" min="0" max="50" step="0.5" value="${c.ident}"><input type="number" id="pIdeN" step="0.5" value="${c.ident}"></div></div>
+    <div class="row"><label>Altura montaje (m)</label><input type="number" id="pH" step="0.1" value="${c.height??''}"></div>
+    <div class="small">Posición: <span id="pXY">${xyText(c)}</span>${cov&&f.pxPerM?` · Área cubierta ≈ <b>${fmt(cov.areaM2,0)} m²</b>`:''}</div>
+    <div class="row" style="margin-top:8px"><label>Notas</label><textarea id="pNotes" rows="3">${esc(c.notes)}</textarea></div>
+    <div class="btns"><button id="pDup">Duplicar <kbd>D</kbd></button><button id="pRot">Girar 90°</button><button id="pDel" class="danger">Eliminar</button></div>
+    <p class="small" style="margin-top:12px">Arrastra la cámara para moverla y el punto blanco para orientarla (Shift = pasos de 15°). La zona más oscura es la distancia donde se identifica a una persona; la clara es el alcance total. Los muros cortan la cobertura.</p>`;
+    const bindPair=(a,b,key,num=true)=>{const A=$('#'+a),B=$('#'+b);const set=v=>{c[key]=num?+v:v;A.value=v;B.value=v;covCache.delete(c.id);draw();};A.oninput=e=>set(e.target.value);B.oninput=e=>set(e.target.value);A.onchange=B.onchange=()=>{commit();renderProps();};};
+    bindPair('pDir','pDirN','dir');bindPair('pFov','pFovN','fov');bindPair('pRng','pRngN','range');bindPair('pIde','pIdeN','ident');
+    const bindTxt=(id,key,after)=>{const el=$('#'+id);el.oninput=e=>{c[key]=e.target.value;draw();};el.onchange=()=>{commit();after&&after();};};
+    bindTxt('pCode','code',()=>{renderProps();});bindTxt('pZone','zone');bindTxt('pPhase','phase',renderPhaseSel);bindTxt('pNotes','notes');
+    $('#pH').onchange=e=>{c.height=e.target.value===''?null:+e.target.value;commit();};
+    $('#pType').onchange=e=>{const nt=P.types.find(x=>x.id===e.target.value);c.type=nt.id;c.fov=nt.fov;c.range=nt.range;c.ident=nt.ident;covCache.delete(c.id);commit();renderProps();draw();};
+    $('#pFloor').onchange=e=>{c.floor=e.target.value;covCache.delete(c.id);st.floor=c.floor;commit();renderAll();};
+    $('#pDup').onclick=()=>duplicateCam(c);$('#pRot').onclick=()=>{c.dir=normDir(c.dir+90);covCache.delete(c.id);commit();renderProps();draw();};
+    $('#pDel').onclick=deleteSel;$('#pClose').onclick=()=>{st.sel=null;renderProps();draw();};
+    if(readonly)box.querySelectorAll('input,select,textarea,button:not(#pClose)').forEach(x=>x.disabled=true);
+    return;
+  }
+  if(st.sel&&st.sel.kind==='wall'){
+    const f=curFloor(),w=f.walls[st.sel.i];const len=w&&f.pxPerM?Math.hypot(w[2]-w[0],w[3]-w[1])/f.pxPerM:null;
+    box.innerHTML=`<h3>Muro seleccionado</h3><p class="small">${len?`Largo ≈ ${fmt(len,2)} m. `:''}Los muros bloquean la vista de las cámaras al calcular la cobertura.</p><div class="btns"><button class="danger" id="wDel">Eliminar muro <kbd>Supr</kbd></button><button id="wNo">Cerrar</button></div>`;
+    $('#wDel').onclick=deleteSel;$('#wNo').onclick=()=>{st.sel=null;renderProps();draw();};return;
+  }
+  renderSummary(box);
+}
+const normDir=d=>{d=((+d+180)%360+360)%360-180;return Math.round(d);};
+
+function stats(){
+  const cams=P.cameras,byType={},byPhase={},byFloor={};
+  cams.forEach(c=>{const t=typeOf(c);(byType[t.id]=byType[t.id]||{t,n:0}).n++;const ph=c.phase||'(sin fase)';byPhase[ph]=(byPhase[ph]||0)+1;byFloor[c.floor]=(byFloor[c.floor]||0)+1;});
+  let mbps=0,poe=0,cost=0;Object.values(byType).forEach(({t,n})=>{mbps+=n*(+t.mbps||0);poe+=n*(+t.poe||0);cost+=n*(+t.price||0);});
+  const days=+P.settings.days||30,tb=mbps*1e6/8*86400*days/1e12;
+  const nvr=[4,8,16,32,64,128,256].find(x=>x>=cams.length)||'>256';
+  return{total:cams.length,byType,byPhase,byFloor,mbps,poe,cost,tb,days,nvr};
+}
+function renderSummary(box){
+  const s=stats(),f=curFloor();
+  const q=(st.listQ||'').toLowerCase();
+  const list=f?floorCams(f).filter(c=>!q||(c.code+' '+c.zone+' '+c.phase).toLowerCase().includes(q)).sort((a,b)=>a.code.localeCompare(b.code,'es',{numeric:true})):[];
+  box.innerHTML=`${readonly?'<div class="banner">Solo lectura: no puedes guardar cambios.</div>':''}
+  <h3>Resumen del proyecto</h3>
+  <div class="kpis">
+    <div class="kpi"><b>${s.total}</b><span>cámaras en total</span></div>
+    <div class="kpi"><b>${s.nvr}</b><span>canales de NVR sugeridos</span></div>
+    <div class="kpi"><b>${fmt(s.tb,1)} TB</b><span>disco para <input type="number" id="sDays" value="${s.days}" min="1" style="width:46px;padding:0 3px"> días</span></div>
+    <div class="kpi"><b>${fmt(s.poe,0)} W</b><span>consumo PoE estimado</span></div>
+  </div>
+  <div class="small">Ancho de banda de grabación ≈ ${fmt(s.mbps,0)} Mbps${s.cost?` · Costo cámaras ≈ $${fmt(s.cost,0)}`:''}</div>
+  <h4>Por tipo</h4>
+  <table class="t"><tr><th>Tipo</th><th class="num">N°</th><th class="num">Mbps</th></tr>
+  ${Object.values(s.byType).sort((a,b)=>b.n-a.n).map(({t,n})=>`<tr><td><span class="sw" style="background:${t.color}"></span>${esc(t.name)}</td><td class="num">${n}</td><td class="num">${fmt(n*t.mbps,1)}</td></tr>`).join('')||'<tr><td colspan=3 class="small">Sin cámaras</td></tr>'}
+  </table>
+  <h4>Por fase</h4>
+  <table class="t">${Object.entries(s.byPhase).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('')||'<tr><td class="small">—</td></tr>'}</table>
+  <h4>Por plano</h4>
+  <table class="t">${P.floors.map(x=>`<tr><td>${esc(x.name)}</td><td class="num">${s.byFloor[x.id]||0}</td></tr>`).join('')}</table>
+  ${f?`<h4>Cámaras en "${esc(f.name)}"</h4>
+  <input id="sQ" placeholder="Buscar código, zona o fase…" value="${esc(st.listQ||'')}" style="width:100%;margin-bottom:4px">
+  <div class="list">${list.map(c=>`<div class="li" data-id="${esc(c.id)}"><span class="c" style="color:${typeOf(c).color}">${esc(c.code)}</span><span class="z">${esc(c.zone||typeOf(c).name)}</span></div>`).join('')||'<div class="small">Sin resultados.</div>'}</div>`:''}
+  <p class="small" style="margin-top:12px">Selecciona una cámara en el plano para editarla. Estimaciones con H.265 y los Mbps/W de cada tipo (Archivo → Editar tipos).</p>`;
+  $('#sDays').onchange=e=>{P.settings.days=Math.max(1,+e.target.value||30);commit();renderProps();};
+  const sq=$('#sQ');if(sq)sq.oninput=e=>{st.listQ=e.target.value;const pos=e.target.selectionStart;renderProps();const n=$('#sQ');n.focus();n.setSelectionRange(pos,pos);};
+  box.querySelectorAll('.li').forEach(d=>d.onclick=()=>{const c=P.cameras.find(x=>x.id===d.dataset.id);st.sel={kind:'cam',id:c.id};centerOn(c);renderProps();});
+}
+function centerOn(c){const v=st.view;if(v.s<.5)v.s=.6;v.ox=CW/2-c.x*v.s;v.oy=CH/2-c.y*v.s;draw();}
+
+/* vista */
+$('#vCov').onchange=e=>{st.show.cov=e.target.checked;draw();};
+$('#vIdent').onchange=e=>{st.show.ident=e.target.checked;draw();};
+$('#vLabels').onchange=e=>{st.show.labels=e.target.checked;draw();};
+$('#vWalls').onchange=e=>{st.show.walls=e.target.checked;draw();};
+$('#vOther').onchange=e=>{$('#vPhase').style.display=e.target.checked?'':'none';st.show.phase=e.target.checked?$('#vPhase').value:null;draw();};
+$('#vPhase').onchange=e=>{st.show.phase=e.target.value;draw();};
+$('#vDim').oninput=e=>{st.dim=+e.target.value;draw();};
+
+/* proyecto */
+$('#projName').onchange=e=>{P.name=e.target.value||'Proyecto';commit();refreshProjSel();};
+$('#projSel').onchange=async e=>{if(dirty){clearTimeout(saveT);await save();}const p=projData[e.target.value];if(p)openProject(p);};
+$('#btnNewProj').onclick=()=>{const p=newProject();projData[p.id]=clone(p);openProject(p);markDirty();toast('Proyecto nuevo creado. Agrega un plano para comenzar.');};
+$('#btnUndo').onclick=undo;$('#btnRedo').onclick=redo;
+
+/* ---------------- modales ---------------- */
+function openModal(h){$('#modalBox').innerHTML=h;$('#modal').classList.add('on');}
+function closeModal(){$('#modal').classList.remove('on');}
+$('#modal').addEventListener('pointerdown',e=>{if(e.target.id==='modal')closeModal();});
+function confirmBox(msg,btn,fn){openModal(`<p style="font-size:15px">${msg}</p><div class="btns"><button class="pri" id="cYes">${esc(btn)}</button><button id="cNo">Cancelar</button></div>`);$('#cYes').onclick=()=>{closeModal();fn();};$('#cNo').onclick=closeModal;}
+$('#btnHelp').onclick=()=>openModal(`<h3>Cómo usar el planificador</h3>
+<ol style="padding-left:18px;line-height:1.6">
+<li><b>Agrega un plano</b> (imagen o PDF). Si es un PDF de varias páginas, eliges cuáles importar.</li>
+<li><b>Calibra la escala</b>: marca dos puntos de una medida conocida (por ejemplo, entre ejes) y escribe los metros.</li>
+<li><b>Muros</b>: usa "Detectar muros (auto)" o dibújalos con la herramienta Muro. Así la cobertura se corta donde hay paredes.</li>
+<li><b>Cámaras</b>: elige el tipo, activa la herramienta Cámara y haz clic en el plano. Arrastra el punto blanco para orientarla y ajusta el ángulo y el alcance en el panel derecho.</li>
+<li>El panel de <b>Resumen</b> calcula los canales del NVR, el disco y el PoE. Exporta el plano en PNG o el listado en CSV desde el menú Archivo.</li></ol>
+<table class="t"><tr><th>Tecla</th><th>Acción</th></tr>
+<tr><td>V / C / W / M</td><td>Seleccionar / Cámara / Muro / Medir</td></tr>
+<tr><td>Rueda del mouse</td><td>Zoom · arrastrar el fondo o mantener espacio para mover el plano</td></tr>
+<tr><td>R / Shift+R</td><td>Girar la cámara seleccionada ±15°</td></tr>
+<tr><td>D</td><td>Duplicar la cámara</td></tr>
+<tr><td>Supr</td><td>Eliminar la cámara o el muro seleccionado</td></tr>
+<tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>Deshacer / rehacer</td></tr>
+<tr><td>F</td><td>Ajustar el plano a la pantalla</td></tr></table>
+<p class="small">Los alcances son referenciales. Valida los ángulos con la ficha del fabricante y en terreno.</p>
+<div class="btns"><button class="pri" onclick="document.querySelector('#modal').classList.remove('on')">Entendido</button></div>`);
+
+/* editor de tipos */
+function typesModal(){
+  const rows=()=>P.types.map((t,i)=>{const used=P.cameras.filter(c=>c.type===t.id).length;return`<tr data-i="${i}">
+   <td><input type="color" data-k="color" value="${esc(t.color)}" style="width:34px;padding:0;height:26px"></td>
+   <td><input data-k="name" value="${esc(t.name)}" style="min-width:180px"></td>
+   <td><input type="number" data-k="fov" value="${t.fov}" style="width:58px"></td>
+   <td><input type="number" data-k="range" value="${t.range}" style="width:58px"></td>
+   <td><input type="number" data-k="ident" value="${t.ident}" style="width:58px"></td>
+   <td><input type="number" step="0.1" data-k="mbps" value="${t.mbps}" style="width:58px"></td>
+   <td><input type="number" data-k="poe" value="${t.poe}" style="width:52px"></td>
+   <td><input type="number" data-k="price" value="${t.price||0}" style="width:90px"></td>
+   <td class="num small">${used}</td>
+   <td>${used?'':'<button data-del="'+i+'" class="danger" title="Eliminar">✕</button>'}</td></tr>`;}).join('');
+  openModal(`<h3>Tipos de cámara</h3><p class="small">Valores por defecto de cada tipo. El ángulo y el alcance se aplican a las cámaras nuevas o cuando cambias el tipo de una cámara. Los Mbps, el PoE y el precio alimentan el resumen.</p>
+  <div style="overflow:auto"><table class="t typetbl"><tr><th></th><th>Nombre</th><th>FOV°</th><th>Alcance m</th><th>Ident. m</th><th>Mbps</th><th>PoE W</th><th>Precio CLP</th><th class="num">Usadas</th><th></th></tr><tbody id="tyRows">${rows()}</tbody></table></div>
+  <div class="btns"><button id="tyAdd">+ Agregar tipo</button><button id="tyApply" title="Aplicar FOV/alcance del tipo a todas sus cámaras">Aplicar valores a cámaras existentes…</button><span class="spacer"></span><button class="pri" id="tyOk">Listo</button></div>`);
+  const wire=()=>{document.querySelectorAll('#tyRows input').forEach(inp=>inp.onchange=e=>{const i=+e.target.closest('tr').dataset.i,k=e.target.dataset.k;P.types[i][k]=e.target.type==='number'?+e.target.value:e.target.value;commit();renderTypesSel();draw();});
+    document.querySelectorAll('#tyRows [data-del]').forEach(b=>b.onclick=()=>{P.types.splice(+b.dataset.del,1);if(!P.types.find(t=>t.id===st.newType))st.newType=P.types[0].id;commit();$('#tyRows').innerHTML=rows();wire();renderTypesSel();});};
+  wire();
+  $('#tyAdd').onclick=()=>{P.types.push({id:uid(),name:'Nuevo tipo',color:'#555555',fov:90,range:15,ident:5,mbps:1.5,poe:6,price:0});commit();$('#tyRows').innerHTML=rows();wire();renderTypesSel();};
+  $('#tyApply').onclick=()=>confirmBox('¿Aplicar el FOV, el alcance y la distancia de identificación de cada tipo a todas sus cámaras? Se perderán los ajustes individuales.','Aplicar',()=>{P.cameras.forEach(c=>{const t=typeOf(c);c.fov=t.fov;c.range=t.range;c.ident=t.ident;});covCache.clear();commit();renderAll();});
+  $('#tyOk').onclick=()=>{closeModal();renderAll();};
+}
+$('#btnTypes').onclick=typesModal;
+
+/* ---------------- menú archivo ---------------- */
+function closeMenus(){$('#fileMenu').classList.remove('on');}
+$('#btnFile').onclick=e=>{e.stopPropagation();$('#fileMenu').classList.toggle('on');};
+document.addEventListener('click',e=>{if(!e.target.closest('.menu'))closeMenus();});
+$('#fileMenu').addEventListener('click',e=>{const a=e.target.dataset.act;if(!a)return;closeMenus();
+  if(a==='png')exportPNG();else if(a==='csv')exportCSV();else if(a==='json')exportJSON();else if(a==='import')$('#fileImport').click();else if(a==='types')typesModal();
+  else if(a==='delproj')confirmBox(`¿Eliminar el proyecto "${esc(P.name)}"? No se puede deshacer.`,'Eliminar',delProject);});
+async function delProject(){const id=P.id;try{if(db)await db.doc('projects/'+id).delete();}catch(e){toast('No se pudo eliminar: '+(e.message||e.code));return;}
+  delete projData[id];try{localStorage.removeItem('cctv-local-'+id);const idx=LS.get('cctv-local-index')||{};delete idx[id];LS.set('cctv-local-index',idx);}catch(e){}
+  const next=Object.values(projData)[0];if(next)openProject(next);else{const p=newProject();projData[p.id]=clone(p);openProject(p);}toast('Proyecto eliminado');}
+const safeName=s=>(s||'proyecto').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w\-]+/g,'_').slice(0,60);
+async function offer(filename,data,mime){
+  if(dl){try{await dl.save({filename,data});return;}catch(e){if(e&&e.code==='declined')return;if(e&&e.code==='rate_limited'){toast('Espera un momento e inténtalo de nuevo.');return;}}}
+  if(!inClaude()){const blob=data instanceof Blob?data:new Blob([data],{type:mime+';charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);return;}
+  // alternativa: mostrar para copiar o guardar
+  if(mime==='image/png'){const url=URL.createObjectURL(data);openModal(`<h3>Imagen del plano</h3><p class="small">Clic derecho sobre la imagen → "Guardar imagen como…".</p><img src="${url}" style="width:100%;border:1px solid var(--line)"><div class="btns"><button onclick="document.querySelector('#modal').classList.remove('on')">Cerrar</button></div>`);}
+  else{const txt=typeof data==='string'?data:await data.text();openModal(`<h3>${esc(filename)}</h3><p class="small">Copia el contenido y pégalo en un archivo.</p><textarea id="expTxt" style="width:100%;height:50vh;font:12px monospace">${esc(txt)}</textarea><div class="btns"><button class="pri" id="expCopy">Copiar</button><button onclick="document.querySelector('#modal').classList.remove('on')">Cerrar</button></div>`);$('#expCopy').onclick=async()=>{try{await navigator.clipboard.writeText(txt);toast('Copiado');}catch(e){$('#expTxt').select();}};}
+}
+async function exportPNG(){
+  const f=curFloor();if(!f){toast('No hay plano');return;}
+  busy(true,'Generando imagen…');
+  try{
+    const im=await loadImg(f);const c=document.createElement('canvas');c.width=f.w;c.height=f.h+90;const g=c.getContext('2d');
+    g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,f.w,f.h);if(st.dim>0){g.fillStyle=`rgba(255,255,255,${st.dim})`;g.fillRect(0,0,f.w,f.h);}
+    const s=Math.max(.35,Math.min(1,f.w/6500));drawLayer(g,f,s,{export:true});
+    // leyenda
+    const cams=visibleCams(f),types=[...new Set(cams.map(c=>c.type))].map(id=>P.types.find(t=>t.id===id)).filter(Boolean);
+    g.fillStyle='#16202e';g.fillRect(0,f.h,c.width,90);g.fillStyle='#fff';g.font='600 30px "IBM Plex Sans",sans-serif';g.textBaseline='middle';
+    g.fillText(`${P.name} — ${f.name} — ${cams.length} cámaras`,24,f.h+30);
+    let x=24;g.font='500 22px "IBM Plex Sans",sans-serif';types.forEach(t=>{const n=cams.filter(c=>c.type===t.id).length;g.fillStyle=t.color;g.beginPath();g.arc(x+9,f.h+66,9,0,7);g.fill();g.fillStyle='#dfe5ee';const txt=`${t.name} (${n})`;g.fillText(txt,x+24,f.h+66);x+=g.measureText(txt).width+60;});
+    const blob=await new Promise(r=>c.toBlob(r,'image/png'));busy(false);
+    await offer(`${safeName(P.name)}_${safeName(f.name)}.png`,blob,'image/png');
+  }catch(e){busy(false);toast('No se pudo generar la imagen: '+e.message);}
+}
+function exportCSV(){
+  const head=['Código','Plano','Ubicación / qué cubre','Tipo','Fase','Dirección (°)','FOV (°)','Alcance (m)','Identificación (m)','Altura (m)','X (m)','Y (m)','Área cubierta (m²)','Notas'];
+  const q=v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const rows=P.cameras.slice().sort((a,b)=>a.code.localeCompare(b.code,'es',{numeric:true})).map(c=>{const f=P.floors.find(x=>x.id===c.floor),t=typeOf(c),ppm=f&&f.pxPerM;const cov=f?coverage(c,f):null;
+    return[c.code,f?f.name:'',c.zone,t.name,c.phase,normDir(c.dir),c.fov,c.range,c.ident,c.height??'',ppm?(c.x/ppm).toFixed(2):'',ppm?(c.y/ppm).toFixed(2):'',ppm&&cov?Math.round(cov.areaM2):'',c.notes].map(q).join(';');});
+  offer(`${safeName(P.name)}_camaras.csv`,'﻿'+[head.join(';'),...rows].join('\r\n'),'text/csv');
+}
+function exportJSON(){
+  openModal(`<h3>Exportar proyecto (JSON)</h3><p>El archivo sirve como respaldo o para abrir el proyecto en otro navegador o en otra copia del planificador.</p>
+  <label class="chk"><input type="checkbox" id="xImg" checked> Incluir las imágenes de los planos (archivo más pesado, pero se abre completo en cualquier lugar)</label>
+  <div class="btns"><button class="pri" id="xOk">Exportar</button><button id="xNo">Cancelar</button></div>`);
+  $('#xNo').onclick=closeModal;
+  $('#xOk').onclick=async()=>{const withImg=$('#xImg').checked;closeModal();busy(true,'Preparando archivo…');
+    try{const p=clone(P);
+      if(withImg){for(const f of p.floors){const src=floorSrc(P.floors.find(x=>x.id===f.id));if(!src||src.startsWith('missing:'))continue;const b=await(await fetch(src)).blob();f.embed=await blobToDataURL(b);delete f.asset;delete f.local;delete f.src;delete f._tmp;}}
+      busy(false);await offer(`${safeName(P.name)}.json`,JSON.stringify({format:'cctv-planner',version:1,project:p}),'application/json');}
+    catch(e){busy(false);toast('No se pudo exportar: '+e.message,5000);}};
+}
+function blobToDataURL(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b);});}
+function dataURLToBlob(u){const [h,d]=u.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'image/jpeg';const bin=atob(d);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:mime});}
+$('#fileImport').onchange=async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  busy(true,'Importando proyecto…');
+  try{const j=JSON.parse(await file.text());const p=normalize(j.project||j);if(!Array.isArray(p.floors)||!Array.isArray(p.cameras))throw new Error('formato no reconocido');
+    let missing=0;
+    for(const f of p.floors){
+      if(f.embed){const loc=await storeImage(dataURLToBlob(f.embed));delete f.embed;delete f.asset;delete f.local;delete f.src;Object.assign(f,loc);}
+      else if(!f.asset&&!f.local&&!(f.src||'').startsWith('plans/'))missing++;
+    }
+    p.id=uid();p.name=(p.name||'Proyecto')+' (importado)';projData[p.id]=clone(p);openProject(p);markDirty();busy(false);
+    toast(missing?`Proyecto importado. ${missing} plano(s) venían sin imagen: vuelve a subirlas.`:'Proyecto importado',6000);}
+  catch(err){busy(false);toast('No se pudo importar: '+err.message,5000);}
+};
+
+/* ---------------- agregar planos ---------------- */
+$('#btnAddFloor').onclick=$('#btnAddFloor2').onclick=()=>{if(readonly)return;$('#fileFloor').click();};
+$('#fileFloor').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;
+  try{if(/pdf$/i.test(file.type)||/\.pdf$/i.test(file.name))await addPdf(file);else await addImageBlob(file,file.name.replace(/\.[^.]+$/,''));}
+  catch(err){busy(false);toast('No se pudo agregar el plano: '+(err.message||err),6000);}};
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('no se pudo cargar el lector de PDF'));document.head.appendChild(s);});}
+let pdfLib=null;
+async function ensurePdf(){if(pdfLib)return pdfLib;const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadScript(base+'pdf.worker.min.js');await loadScript(base+'pdf.min.js');pdfLib=window.pdfjsLib;pdfLib.GlobalWorkerOptions.workerSrc=base+'pdf.worker.min.js';return pdfLib;}
+async function addPdf(file){
+  busy(true,'Leyendo PDF…');const L=await ensurePdf();const doc=await L.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;busy(false);
+  const base=file.name.replace(/\.pdf$/i,'');
+  openModal(`<h3>Importar páginas del PDF</h3><p class="small">${esc(file.name)} tiene ${doc.numPages} página(s). Marca las que son planos y dales un nombre.</p>
+   <div id="pgList">${Array.from({length:doc.numPages},(_,i)=>`<div class="row"><input type="checkbox" data-p="${i+1}" ${doc.numPages===1?'checked':''} style="flex:none;width:auto"><label style="width:70px">Página ${i+1}</label><input data-n="${i+1}" value="${esc(doc.numPages===1?base:base+' – p'+(i+1))}"></div>`).join('')}</div>
+   <div class="btns"><button class="pri" id="pgOk">Importar</button><button id="pgNo">Cancelar</button></div>`);
+  $('#pgNo').onclick=closeModal;
+  $('#pgOk').onclick=async()=>{const sel=[...document.querySelectorAll('#pgList [data-p]')].filter(x=>x.checked).map(x=>({p:+x.dataset.p,name:document.querySelector(`#pgList [data-n="${x.dataset.p}"]`).value}));
+    if(!sel.length){toast('Marca al menos una página');return;}closeModal();
+    try{for(const it of sel){busy(true,`Renderizando página ${it.p}…`);const page=await doc.getPage(it.p);const v1=page.getViewport({scale:1});const sc=Math.min(5000/Math.max(v1.width,v1.height),6);const vp=page.getViewport({scale:sc});
+      const c=document.createElement('canvas');c.width=Math.round(vp.width);c.height=Math.round(vp.height);const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
+      await page.render({canvasContext:g,viewport:vp}).promise;const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.86));await addImageBlob(blob,it.name,true);}
+      busy(false);}catch(err){busy(false);toast('Error al convertir el PDF: '+(err.message||err),6000);}};
+}
+async function addImageBlob(blob,name,quiet){
+  busy(true,'Subiendo plano…');
+  const url=URL.createObjectURL(blob);const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('imagen no válida'));i.src=url;});
+  const f={id:uid(),name:name||'Plano',w:im.naturalWidth,h:im.naturalHeight,pxPerM:null,walls:[]};
+  let loc;try{loc=await storeImage(blob);}catch(e){busy(false);throw new Error('no se pudo guardar la imagen ('+(e.message||e.code)+')');}
+  Object.assign(f,loc);imgs.set(floorSrc(f)||url,im);
+  if(loc._tmp)toast('Este plano se verá sólo en esta sesión: el navegador no permite guardar la imagen.',6000);
+  P.floors.push(f);st.floor=f.id;st.sel=null;commit();renderAll();fitView();busy(false);
+  setTool('calib');toast('Plano agregado. Ahora calibra la escala: marca dos puntos de una medida conocida.',6000);
+}
+
+/* ---------------- detección automática de muros ---------------- */
+function detectWallsUI(f){
+  openModal(`<h3>Detectar muros automáticamente</h3><p>Busca líneas gruesas y oscuras en el plano (muros achurados o rellenos) y las convierte en muros que bloquean la vista.</p>
+  <div class="row"><label>Grosor mínimo</label><select id="dK"><option value="0.12">Fino (tabiques delgados)</option><option value="0.22" selected>Normal</option><option value="0.32">Grueso (sólo muros principales)</option></select></div>
+  <div class="row"><label>Muros actuales</label><select id="dMode"><option value="replace">Reemplazar</option><option value="add">Agregar a los existentes</option></select></div>
+  <p class="small">${f.pxPerM?'':'<b>Calibra la escala antes</b> para que la detección sea más precisa. '}Revisa el resultado con "Mostrar muros". Puedes borrar los muros que sobren (selecciónalos y presiona Supr) y dibujar los que falten.</p>
+  <div class="btns"><button class="pri" id="dOk">Detectar</button><button id="dNo">Cancelar</button></div>`);
+  $('#dNo').onclick=closeModal;
+  $('#dOk').onclick=async()=>{const k=+$('#dK').value,mode=$('#dMode').value;closeModal();busy(true,'Detectando muros…');await new Promise(r=>setTimeout(r,40));
+    try{const segs=await detectWalls(f,k);f.walls=mode==='add'?f.walls.concat(segs):segs;wallsVer++;st.show.walls=true;$('#vWalls').checked=true;commit();renderAll();toast(`${segs.length} muros detectados`);}
+    catch(e){toast('No se pudo detectar: '+e.message);}busy(false);};
+}
+async function detectWalls(f,thickM){
+  const im=await loadImg(f);const sc=Math.min(1,5000/Math.max(f.w,f.h));const W=Math.round(f.w*sc),H=Math.round(f.h*sc);
+  const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d',{willReadFrequently:true});g.imageSmoothingEnabled=sc<1;g.drawImage(im,0,0,W,H);
+  const d=g.getImageData(0,0,W,H).data;let m=new Uint8Array(W*H);
+  for(let i=0,j=0;i<m.length;i++,j+=4){const r=d[j],gg=d[j+1],b=d[j+2];const gray=.299*r+.587*gg+.114*b;const sat=Math.max(r,gg,b)-Math.min(r,gg,b);m[i]=(gray<110&&sat<40)?1:0;}
+  // tamaños en píxeles a partir de la escala (si no hay escala, se asume una lámina 1:100 a ~110 ppp)
+  const ppm=(f.pxPerM||40.5*f.w/3898)*sc,odd=v=>Math.max(3,Math.round(v)|1);
+  const k=odd(thickM*ppm),kl=odd(.6*ppm),kc=odd(2*ppm),minA=Math.pow(.39*ppm,2),big=1.1*ppm;
+  m=filt(filt(filt(filt(m,W,H,3,'h',0),W,H,3,'v',0),W,H,3,'h',1),W,H,3,'v',1);   // cierre 3x3 (une el achurado)
+  m=filt(m,W,H,k,'h',1);m=filt(m,W,H,k,'v',1);m=filt(m,W,H,k,'h',0);m=filt(m,W,H,k,'v',0); // apertura: sólo trazos gruesos
+  let Hm=filt(filt(m,W,H,kl,'h',1),W,H,kl,'h',0);Hm=filt(filt(Hm,W,H,kc,'h',0),W,H,kc,'h',1);
+  let Vm=filt(filt(m,W,H,kl,'v',1),W,H,kl,'v',0);Vm=filt(filt(Vm,W,H,kc,'v',0),W,H,kc,'v',1);
+  const out=[],inv=1/sc;
+  comps(Hm,W,H).forEach(([x,y,w,h,a])=>{if(a<minA)return;if(h>big)out.push(...rect(x,y,w,h));else{const cy=y+h/2;out.push([x-h/2,cy,x+w+h/2,cy]);}});
+  comps(Vm,W,H).forEach(([x,y,w,h,a])=>{if(a<minA)return;if(w>big)out.push(...rect(x,y,w,h));else{const cx=x+w/2;out.push([cx,y-w/2,cx,y+h+w/2]);}});
+  return out.map(s=>s.map(v=>Math.round(v*inv)));
+}
+function rect(x,y,w,h){return[[x,y,x+w,y],[x,y+h,x+w,y+h],[x,y,x,y+h],[x+w,y,x+w,y+h]];}
+// filtro binario separable: erode=1 (mínimo) o dilate=0 (máximo), ventana k, dirección h/v
+function filt(m,W,H,k,dir,erode){
+  const o=new Uint8Array(W*H),r=k>>1;
+  if(dir==='h'){for(let y=0;y<H;y++){const row=y*W;let s=0;for(let x=-r;x<W+r;x++){const xa=x+r;if(xa<W)s+=m[row+xa]||0;const xr=x-r-1;if(xr>=0)s-=m[row+xr];if(x>=0&&x<W)o[row+x]=erode?(s===k?1:0):(s>0?1:0);}}}
+  else{for(let x=0;x<W;x++){let s=0;for(let y=-r;y<H+r;y++){const ya=y+r;if(ya<H)s+=m[ya*W+x];const yr=y-r-1;if(yr>=0)s-=m[yr*W+x];if(y>=0&&y<H)o[y*W+x]=erode?(s===k?1:0):(s>0?1:0);}}}
+  return o;
+}
+function comps(m,W,H){
+  const lab=new Uint8Array(W*H),res=[],stack=new Int32Array(W*H);
+  for(let i=0;i<m.length;i++){if(!m[i]||lab[i])continue;let sp=0,x0=W,y0=H,x1=0,y1=0,a=0;stack[sp++]=i;lab[i]=1;
+    while(sp){const p=stack[--sp],x=p%W,y=(p-x)/W;a++;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+      if(x>0&&m[p-1]&&!lab[p-1]){lab[p-1]=1;stack[sp++]=p-1;}if(x<W-1&&m[p+1]&&!lab[p+1]){lab[p+1]=1;stack[sp++]=p+1;}
+      if(y>0&&m[p-W]&&!lab[p-W]){lab[p-W]=1;stack[sp++]=p-W;}if(y<H-1&&m[p+W]&&!lab[p+W]){lab[p+W]=1;stack[sp++]=p+W;}}
+    res.push([x0,y0,x1-x0+1,y1-y0+1,a]);}
+  return res;
+}
+
+/* ---------------- arranque ---------------- */
+(async function boot(){
+  setTool('select');setSave('Conectando…');
+  // plano vacío mientras carga
+  st.loading=true;P=newProject('Cargando…');renderAll();
+  await initCaps();
+  await loadProjects();
+  st.loading=false;
+  const ids=Object.keys(projData);const last=LS.get('cctv-last');
+  if(ids.length){openProject(projData[ids.includes(last)?last:ids[0]]);setSave(db?'Guardado':'Guardado en este navegador');}
+  else{const p=newProject();projData[p.id]=clone(p);openProject(p);setSave(db?'':'Modo local (este navegador)');}
+  if(!db)toast(inClaude()?'Sin conexión al guardado en la nube: los cambios se guardan sólo en este navegador.':'Los proyectos se guardan en este navegador. Usa Archivo → Exportar proyecto para respaldarlos.',5000);
+})();
+</script>
+</body>
+</html>
